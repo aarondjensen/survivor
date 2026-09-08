@@ -45,14 +45,22 @@ API_HINT = re.compile(r"(gambit|fantasy|site|sports\.core|lm-api)[\w.-]*\.espn\.
 NOISE = re.compile(r"\.(png|jpg|jpeg|gif|svg|webp|woff2?|ttf|css|js|ico)(\?|$)", re.I)
 
 
-def creds():
-    """swid + espn_s2, the same pair draftkit keeps. Copy those two lines from
-    C:\\dev\\draftkit\\.env into a .env beside this script, or set them in the
-    environment. Never pasted into code."""
+def creds(env_path=None):
+    """swid + espn_s2, the same pair draftkit keeps.
+
+    PREFER POINTING AT draftkit's .env OVER COPYING IT. These are session cookies
+    for a whole ESPN account, and two copies is two places to rotate -- the one
+    you forget is the one still live. --env takes a path; a local .env still
+    works, and is gitignored here."""
     env = {}
-    p = HERE / ".env"
-    if p.exists():
-        for line in p.read_text(encoding="utf-8").splitlines():
+    for p in ([pathlib.Path(env_path)] if env_path else [HERE / ".env"]):
+        if not p.exists():
+            if env_path:
+                raise SystemExit(f"No such file: {p}")
+            continue
+        # utf-8-sig: PowerShell writes a BOM often enough that a plain utf-8 read
+        # turns the first key into an unrecognisable one, silently.
+        for line in p.read_text(encoding="utf-8-sig", errors="replace").splitlines():
             if "=" in line and not line.strip().startswith("#"):
                 k, v = line.split("=", 1)
                 env[k.strip().upper()] = v.strip().strip("'\"")
@@ -61,12 +69,16 @@ def creds():
     if not (swid and s2):
         raise SystemExit(
             "No ESPN cookies. This pool is private, so the request has to be you.\n\n"
-            "  Put these two lines in a .env beside this script (it is gitignored):\n"
-            "      SWID={xxxxxxxx-xxxx-...}\n"
-            "      ESPN_S2=AEB...\n\n"
-            "  You already have both in C:\\dev\\draftkit\\.env -- copy them across.\n"
+            "  BEST -- point at the copy you already have, so there is only ever one:\n"
+            "      python pull_field.py --env C:\\dev\\draftkit\\.env --discover ...\n\n"
+            "  Or write a local one (gitignored here). In PowerShell, without ever\n"
+            "  printing the values to your terminal:\n"
+            "      Select-String C:\\dev\\draftkit\\.env -Pattern '^(SWID|ESPN_S2)=' |\n"
+            "        ForEach-Object { $_.Line } | Set-Content C:\\dev\\survivor\\.env\n\n"
             "  They are session cookies for your whole ESPN account: never commit them,\n"
-            "  and rotate by signing out of ESPN and back in if they ever leak.")
+            "  and rotate by signing out of ESPN and back in if they ever leak."
+            + (f"\n\n  Read {pathlib.Path(env_path)} and found: {sorted(env) or 'nothing'}"
+               if env_path else ""))
     if not swid.startswith("{"):
         swid = "{" + swid.strip("{}") + "}"
     return {"SWID": swid, "espn_s2": s2}
@@ -117,7 +129,7 @@ def shape(node, depth=0, path="$"):
         print(f"{pad}{path}: {type(node).__name__} = {v[:70]}")
 
 
-def discover(url: str):
+def discover(url: str, env_path=None):
     """Drive the real page through your own session and record what it calls.
     This is the whole point: the endpoint is OBSERVED, never guessed."""
     try:
@@ -130,7 +142,7 @@ def discover(url: str):
             "    open the pool page, F12 -> Network -> filter 'Fetch/XHR', reload,\n"
             "    and copy the request URLs that look like an API. Then run\n"
             "    python pull_field.py --dump \"<that url>\"")
-    seen, cookies = [], creds()
+    seen, cookies = [], creds(env_path)
     with sync_playwright() as pw:
         b = pw.chromium.launch(headless=False)          # visible: you may need to click through
         ctx = b.new_context()
@@ -159,16 +171,19 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--url", default=f"https://fantasy.espn.com/games/{GAME}/group",
                     help="your pool's page, the one with ?id=<uuid>")
+    ap.add_argument("--env", metavar="PATH",
+                    help=r"read SWID/ESPN_S2 from here instead of a local .env "
+                         r"(e.g. C:\dev\draftkit\.env) -- better than a second copy")
     ap.add_argument("--discover", action="store_true",
                     help="open the page in a browser and print the API calls it makes")
     ap.add_argument("--dump", metavar="URL", help="fetch one endpoint and describe the response")
     a = ap.parse_args()
 
     if a.discover:
-        return discover(a.url)
+        return discover(a.url, a.env)
 
     if a.dump:
-        status, body = fetch(a.dump, creds())
+        status, body = fetch(a.dump, creds(a.env))
         print(f"HTTP {status}  ({len(body)} bytes)\n")
         if status != 200:
             print(body[:600])
