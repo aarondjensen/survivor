@@ -6,7 +6,8 @@ Sunday" but "which team can I afford to spend."
 
 **Live:** https://claude.ai/code/artifact/e20117d2-eaca-4216-a0f0-57886fc8b496
 
-Or clone and open `index.html`. One file, no server, no build, no dependencies.
+Or clone to `C:\dev\survivor` and open `index.html`. One file, no server, no
+build, no dependencies.
 
 ## What it does
 

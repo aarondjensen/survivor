@@ -3,6 +3,11 @@
 An NFL survivor pool optimizer. One self-contained HTML file, no server, no build
 step, no dependencies. Open `index.html` and it works.
 
+Lives at `C:\dev\survivor`, beside `C:\dev\draftkit` — Windows / PowerShell.
+Separate repo on purpose: it shares no data, no model and no screens with draftkit,
+and nothing imports across. Python is only ever needed for the two helper scripts;
+the page itself needs nothing installed.
+
 Built to the three pillars in Rick Gehman's *The Lone Survivor* (RickRunGood,
 2026-09-03). Published as an Artifact:
 https://claude.ai/code/artifact/e20117d2-eaca-4216-a0f0-57886fc8b496
