@@ -64,6 +64,29 @@ CHALLENGE = 287
 PAGE = 50
 
 
+# ---------------------------------------------------------------------------
+# SPLASH SPORTS. Observed by --discover on 2026-09-08, ANONYMOUSLY: the walk
+# reported split.io identifying the visitor as `anonymous-user-...`, so what
+# follows is the PUBLIC view of a contest. No entries endpoint and no picks
+# endpoint appeared, which is the expected shape of a page nobody is signed in
+# to -- not evidence that Splash does not serve them.
+# ---------------------------------------------------------------------------
+SPLASH = "https://api.splashsports.com/contests-service/api"
+
+
+def contest_id(url_or_id: str) -> str:
+    """The Splash URL can carry two UUIDs -- the contest and, in an invite link,
+    the referrer. Take the one after /contest(s)/, never just the first match."""
+    m = re.search(r"/contests?/([0-9a-f-]{36})", url_or_id, re.I)
+    if m: return m.group(1)
+    return group_id(url_or_id)
+
+
+def splash_endpoints(cid: str) -> dict:
+    return {"contest": f"{SPLASH}/contests/{cid}",
+            "slates":  f"{SPLASH}/contests/{cid}/slates"}
+
+
 def endpoints(gid: str, offset: int = 0, limit: int = PAGE) -> dict:
     filt = urllib.parse.quote(json.dumps(
         {"filterSortId": {"value": 0}, "limit": limit, "offset": offset},
@@ -162,14 +185,31 @@ def group_id(url_or_id: str) -> str:
     return m.group(0)
 
 
+COOKIE_SCOPE = "espn.com"   # the only host our stored cookies belong to
+
+
 def fetch(url: str, cookies: dict) -> tuple[int, str]:
-    req = urllib.request.Request(url, headers={
+    """COOKIES GO TO ONE DOMAIN AND NOWHERE ELSE.
+
+    The first cut attached the ESPN cookies -- session credentials for a whole
+    ESPN account -- and an ESPN Referer to WHATEVER URL it was handed. Pointing
+    --dump at another platform's API would have posted them straight to a third
+    party. Now the host has to be under COOKIE_SCOPE or the request goes out
+    bare, and the Referer is derived from the target rather than hardcoded."""
+    host = (urllib.parse.urlparse(url).hostname or "").lower()
+    scoped = host == COOKIE_SCOPE or host.endswith("." + COOKIE_SCOPE)
+    headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                       "(KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
         "Accept": "application/json, text/plain, */*",
-        "Cookie": "; ".join(f"{k}={v}" for k, v in cookies.items()),
-        "Referer": f"https://fantasy.espn.com/games/{GAME}/",
-    })
+        "Referer": f"https://fantasy.espn.com/games/{GAME}/" if scoped
+                   else f"https://{host}/",
+    }
+    if scoped and cookies:
+        headers["Cookie"] = "; ".join(f"{k}={v}" for k, v in cookies.items())
+    elif cookies:
+        print(f"  (no cookies sent: {host} is outside {COOKIE_SCOPE})", file=sys.stderr)
+    req = urllib.request.Request(url, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=30) as r:
             return r.status, r.read().decode("utf-8", "replace")
@@ -424,6 +464,8 @@ def main():
     ap.add_argument("--env", metavar="PATH",
                     help=r"read SWID/ESPN_S2 from here instead of a local .env "
                          r"(e.g. C:\dev\draftkit\.env) -- better than a second copy")
+    ap.add_argument("--platform", choices=["espn", "splash"], default="espn",
+                    help="which pool platform the URL belongs to")
     ap.add_argument("--no-creds", action="store_true",
                     help="open the browser with no stored cookies -- sign in by hand. "
                          "Use for a site we hold no credentials for yet")
@@ -448,6 +490,30 @@ def main():
         return inspect(pathlib.Path(a.inspect))
 
     if a.probe:
+        if a.platform == "splash":
+            cid = contest_id(a.url)
+            out_dir = pathlib.Path(a.save) if a.save else None
+            if out_dir: out_dir.mkdir(parents=True, exist_ok=True)
+            for name, url in splash_endpoints(cid).items():
+                print("=" * 72)
+                print(f"{name}\n  {url}")
+                status, body = fetch(url, {})          # public: no credentials at all
+                print(f"  HTTP {status}  ({len(body)} bytes)")
+                if status != 200:
+                    print("  " + body[:400].replace("\n", " ")); continue
+                try: data = json.loads(body)
+                except json.JSONDecodeError:
+                    print("  not JSON: " + body[:200]); continue
+                detail(data, 1, name, maxdepth=3)
+                if out_dir:
+                    (out_dir / f"splash_{name}.json").write_text(
+                        json.dumps(data, indent=1), encoding="utf-8")
+                    print(f"  -> saved {out_dir / ('splash_' + name + '.json')}")
+            print("=" * 72)
+            print("Entries and picks were NOT among the anonymous calls. If this contest\n"
+                  "exposes ownership at all it will be behind a signed-in session -- re-run\n"
+                  "--discover, sign in inside the window, and let the entries list render.")
+            return
         gid = group_id(a.url)
         c = creds(a.env)
         out_dir = pathlib.Path(a.save) if a.save else None
