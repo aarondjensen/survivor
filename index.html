@@ -568,10 +568,24 @@ function ensurePools() {
     if (S.seeded.indexOf(s.src) >= 0) continue;
     const r = blankPool(s.name);
     r.src = s.src;
-    if (s.size) r.pool = s.size;
+    if (s.size) { r.pool = s.size; r.seededSize = s.size; }
     S.pools.push(r);
     S.seeded.push(s.src);
   }
+  /* A POOL SIZE IS SET ONCE AND MOVES EVERY DAY. The tab was seeded at 112 and
+     the next pull said 114, and nothing carried it across -- so the number the
+     whole leverage denominator runs on sat a pull behind, on a tab that had
+     just been refreshed. Adopt the new one WHEN YOU HAVE NOT TOUCHED IT
+     (r.pool still equals what was seeded): a figure you never typed is the
+     puller's to own. Where you HAVE typed one, it stands and the divergence is
+     printed under the field instead -- overwriting an edit is the one thing a
+     pull must never do. */
+  for (const s of srcs) {
+    const r = S.pools.find(x => x.src === s.src);
+    if (!r || !s.size) continue;
+    if (r.seededSize == null || r.pool === r.seededSize) { r.pool = s.size; r.seededSize = s.size; }
+  }
+  if (S.pools[S.pi]) for (const k of POOL_KEYS) S[k] = S.pools[S.pi][k];
   S.pi = Math.max(0, Math.min(S.pools.length - 1, S.pi | 0));
   loadPool(S.pi);
 }
@@ -1053,7 +1067,10 @@ function renderControls(R) {
   $("#f-doubles").value = S.doubles.map(w => w + 1).join(", ");
   $("#f-used").value = S.used.map(t => ABBR[t]).join(" ");
   $("#weeks-left").textContent = (W - S.week) + " week" + (W - S.week === 1 ? "" : "s") + " to go";
-  $("#pool-foot").textContent = S.pool >= 5000 ? "differentiate or bust" : S.pool >= 400 ? "leverage matters" : "survival first";
+  const rec = S.pools && S.pools[S.pi], live = poolSources().find(x => rec && x.src === rec.src);
+  $("#pool-foot").textContent =
+    (live && live.size && live.size !== S.pool ? "the pull says " + live.size + " \u00b7 " : "")
+    + (S.pool >= 5000 ? "differentiate or bust" : S.pool >= 400 ? "leverage matters" : "survival first");
   $("#lev-foot").textContent = lambda().toFixed(2) + (Math.abs(lambda() - 1) < 1e-9 ? " · expected equity" : lambda() > 1 ? " · leans contrarian" : " · leans safe");
   $("#used-foot").textContent = S.used.length ? S.used.length + " burned" : "click a team name in the board";
   $("#own-wk").textContent = String(S.week + 1);

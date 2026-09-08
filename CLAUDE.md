@@ -501,6 +501,15 @@ cap-and-fill contest keeps filling until the deadline and every leverage number
 is share-of-pool, so this is re-pulled on the morning of the draft rather than
 trusted from August.
 
+**THE SIZE IS RE-READ EVERY LOAD; SEEDING IT ONCE WAS NOT ENOUGH.** The tab was
+seeded at 112 and the next pull said 114, and nothing carried it across — so the
+number the entire leverage denominator runs on sat a pull behind on a tab that
+had just been refreshed. It is adopted when you have NOT touched it (`pool`
+still equals `seededSize`), because a figure you never typed is the puller's to
+own. Where you have typed one it stands and the divergence prints under the
+field (`the pull says 118`): overwriting an edit is the one thing a pull must
+never do, and hiding the disagreement is the other.
+
 **SEEDING IS ONCE PER SOURCE, EVER.** `S.seeded` records the ids already offered
 a tab, so a tab you DELETE stays deleted while the pull that created it goes on
 succeeding — otherwise removal is impossible and the delete button lies. The key
@@ -569,6 +578,31 @@ NFL injury reports land Wednesday through Friday, so a slate older than that has
 missed a news cycle and is quoting the market's old opinion of a hurt team. It is
 one constant in one place and it is a DISPLAY threshold — it moves no number on
 the board.
+
+## OWNERSHIP AND WIN PROBABILITY PULL LEVERAGE IN OPPOSITE DIRECTIONS
+
+Measured on the real week-1 board: **LAC 20.6% owned and JAX 16.7% both score
+`LEV 1.47`**, which reads as a bug and is the model being right.
+
+Conditional on your team winning, the expected surviving share is
+`T + own_t x (1 - p_t)`, where `T` is the field's unconditional survival. The
+correction term is what conditioning BUYS you — the backers who would have died
+had your team lost and now do not. A near-certain favourite gives that back
+almost entirely:
+
+    LAC   0.206 x 0.20 = 0.0412
+    JAX   0.167 x 0.28 = 0.0468        <- MORE of the pool survives with you
+
+So JAX is less owned and, because it is also less certain, ends up sharing the
+pot with slightly MORE of the field. The two effects nearly cancel and the
+leverage is identical to two decimals. **An earlier note in this file computed a
+2.3% edge to JAX by holding win probability equal at 0.72 — which isolates
+ownership correctly and is not this board.** The contrarian value of a pick is
+not its ownership; it is its ownership weighted by how unlikely it is to deliver.
+
+Which is why the real differentiation play on that board is neither: **PHI at
+3.6% owned scores `LEV 1.57`** and finishes second overall on 0.0090 against
+LAC's 0.0094, with JAX third on 0.0086 — beaten on both halves at once.
 
 ## POOL SIZE ENTERS LEVERAGE THROUGH ONE DOOR, AND IT IS NARROWER THAN IT LOOKS
 
