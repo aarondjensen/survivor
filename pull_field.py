@@ -35,10 +35,39 @@ records the calls the page makes. That is the endpoint, observed rather than
 assumed. Until one has been observed this script REFUSES to write anything.
 """
 from __future__ import annotations
-import argparse, json, os, pathlib, re, sys, urllib.request, urllib.error
+import argparse, json, os, pathlib, re, sys, urllib.parse, urllib.request, urllib.error
 
 HERE = pathlib.Path(__file__).resolve().parent
 GAME = "nfl-survivor-2026"
+
+# ---------------------------------------------------------------------------
+# OBSERVED, NOT GUESSED. Recorded by --discover against a live session on
+# 2026-09-08: these are the calls the pool page actually makes.
+#
+#   nfl-survivor-2026 resolves to numeric challenge 287. Both spellings answer,
+#   and the numeric one is what every sub-resource is keyed on.
+#
+#   THE GROUP CALL IS PAGINATED and the page asks for 30. A pool larger than one
+#   page would otherwise read as a field of 30 -- the whole tool downstream is
+#   share-of-pool arithmetic, so a silently truncated field is a silently wrong
+#   board. page_group() walks offset until a page comes back short.
+# ---------------------------------------------------------------------------
+BASE = "https://gambit-api.fantasy.espn.com/apis/v1"
+CHALLENGE = 287
+PAGE = 50
+
+
+def endpoints(gid: str, offset: int = 0, limit: int = PAGE) -> dict:
+    filt = urllib.parse.quote(json.dumps(
+        {"filterSortId": {"value": 0}, "limit": limit, "offset": offset},
+        separators=(",", ":")))
+    return {
+        "challenge":    f"{BASE}/challenges/{GAME}/?platform=chui&view=chui_default",
+        "group":        f"{BASE}/challenges/{CHALLENGE}/groups/{gid}/"
+                        f"?platform=chui&view=chui_default_group&filter={filt}",
+        "members":      f"{BASE}/challenges/{CHALLENGE}/members/?platform=chui&view=chui_default",
+        "propositions": f"{BASE}/propositions/?challengeId={CHALLENGE}&platform=chui&view=chui_default",
+    }
 # Hosts worth recording during --discover. ESPN serves its games platform off
 # several; anything under espn.com carrying JSON is worth seeing.
 API_HINT = re.compile(r"(gambit|fantasy|site|sports\.core|lm-api)[\w.-]*\.espn\.com", re.I)
@@ -180,11 +209,42 @@ def main():
                          r"(e.g. C:\dev\draftkit\.env) -- better than a second copy")
     ap.add_argument("--discover", action="store_true",
                     help="open the page in a browser and print the API calls it makes")
+    ap.add_argument("--probe", action="store_true",
+                    help="fetch every OBSERVED endpoint and describe each response")
+    ap.add_argument("--save", metavar="DIR",
+                    help="with --probe, also write each raw response there")
     ap.add_argument("--dump", metavar="URL", help="fetch one endpoint and describe the response")
     a = ap.parse_args()
 
     if a.discover:
         return discover(a.url, a.env)
+
+    if a.probe:
+        gid = group_id(a.url)
+        c = creds(a.env)
+        out_dir = pathlib.Path(a.save) if a.save else None
+        if out_dir: out_dir.mkdir(parents=True, exist_ok=True)
+        for name, url in endpoints(gid).items():
+            print("=" * 72)
+            print(f"{name}\n  {url[:150]}")
+            status, body = fetch(url, c)
+            print(f"  HTTP {status}  ({len(body)} bytes)")
+            if status != 200:
+                print("  " + body[:400].replace("\n", " "))
+                continue
+            try:
+                data = json.loads(body)
+            except json.JSONDecodeError:
+                print("  not JSON: " + body[:200]); continue
+            shape(data)
+            if out_dir:
+                p = out_dir / f"{name}.json"
+                p.write_text(json.dumps(data, indent=1)[:4_000_000], encoding="utf-8")
+                print(f"  -> saved {p}")
+        print("=" * 72)
+        print("Paste the shapes above (or the saved files) and the parser gets written\n"
+              "against the real response. Nothing was written to field.js.")
+        return
 
     if a.dump:
         status, body = fetch(a.dump, creds(a.env))
@@ -202,12 +262,12 @@ def main():
 
     raise SystemExit(
         "Nothing to write yet, and that is deliberate.\n\n"
-        "  ESPN's games platform is undocumented and no endpoint has been OBSERVED for\n"
-        "  this pool. Writing a parser against a guessed shape is how you get a file\n"
-        "  that looks right and is not. Run this first:\n\n"
-        "      python pull_field.py --url \"<your pool URL>\" --discover\n\n"
-        "  then --dump the endpoint it finds, and the parser gets written against the\n"
-        "  real response.\n\n"
+        "  The endpoints are known now (--discover found them; challenge 287 on\n"
+        "  gambit-api.fantasy.espn.com). What is NOT known is the shape of what they\n"
+        "  return, and a parser written against a guessed shape produces a file that\n"
+        "  looks right and is not. So:\n\n"
+        "      python pull_field.py --env <path> --url \"<your pool URL>\" --probe\n\n"
+        "  and the parser gets written against the real response.\n\n"
         "  TARGET OUTPUT once the shape is known -- field.js, read by index.html:\n"
         "      window.FIELD = {\n"
         "        week: 3,                      last locked week\n"
