@@ -215,9 +215,21 @@ def read_lookahead(path):
       grid  TEAM, w1, w2, ... w18          (blank / BYE / - for a bye)
       long  TEAM, WEEK, SPREAD
     """
+    p = pathlib.Path(path)
+    if not p.exists():
+        raise SystemExit(
+            f"No such file: {path}\n\n"
+            "  --lookahead reads a table YOU save; nothing downloads it, because the sites\n"
+            "  that publish lookahead spreads sit behind a subscription. Copy the table out\n"
+            "  of the page, save it beside this script, and pass that filename. Either shape\n"
+            "  parses:\n\n"
+            "      LAR,-3.5,-7,+1.5,BYE,-6,...        one row per team, week 1 onward\n"
+            "      LAR,1,-3.5                         or team, week, spread\n\n"
+            "  Negative means that team is FAVOURED. Nothing was written; the pull works\n"
+            "  without it -- you just get model numbers for the weeks no book has lined yet.")
     got = {}                                   # (team_idx, week) -> team-perspective spread
     grid_rows = long_rows = skipped = 0
-    for raw in pathlib.Path(path).read_text(encoding="utf-8").splitlines():
+    for raw in p.read_text(encoding="utf-8-sig", errors="replace").splitlines():
         line = raw.strip()
         if not line: continue
         parts = [p.strip() for p in re.split(r"[,\t;|]", line)]
