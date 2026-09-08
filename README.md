@@ -32,15 +32,23 @@ lock it in and advance. Pool settings, burns and pins persist. CSV export.
 ## Getting real numbers in
 
 ```
-python pull_season.py --dump 3   # sanity-check what the API returns; writes nothing
-python pull_season.py            # writes season.js next to index.html
+python pull_season.py --dump                    # what does the source return? writes nothing
+python pull_season.py                           # writes season.js next to index.html
+python pull_season.py --lookahead 4for4.csv     # ... with real spreads for EVERY week
 ```
 
 The page picks `season.js` up automatically and the masthead stamp turns green.
-The **schedule** and any **posted point spreads** are real; every win probability
-is modelled from them — a spread through a normal curve, an unlined week through
-ratings fitted to the spreads that do exist. Nobody has real win probabilities for
-week 15 in September; the page says which games were priced off a real line.
+
+The **schedule** is real. A game with a posted **moneyline** is priced off it
+de-vigged — an actual traded price. A game with a posted **spread** goes through
+a normal curve. Everything else is model output from ratings fitted to the lines
+that do exist, and the page prints that split under the board.
+
+In September a book has only hung lines on the next week or two. **`--lookahead`
+closes that gap**: paste a lookahead-spread table (4for4 publishes one for every
+team in every week) and the whole season gets market numbers instead of modelled
+ones. It refuses a table whose spreads land on bye weeks, which is what a
+column-offset paste looks like.
 
 If the pull fails verification it writes nothing and you stay on the sample.
 

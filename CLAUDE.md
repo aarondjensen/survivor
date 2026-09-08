@@ -78,17 +78,41 @@ board runs on it and the masthead stamp turns green and names the pull; absent (
 published Artifact, a fresh clone) it 404s **silently** and the embedded sample is
 used. They are never merged — a half-real slate is the worst of both.
 
-**WHAT IS REAL AND WHAT IS MODELLED, BECAUSE THE DIFFERENCE IS THE WHOLE QUESTION.**
+**THREE TIERS OF TRUTH, AND THE PAGE PRINTS WHICH ONE EACH GAME GOT.**
 
-| | |
+| tier | what it is |
 |---|---|
-| **real** | the schedule — every fixture, home and away, byes included |
-| **real** | the point spread on any game a book has actually posted a line for |
-| **modelled** | every win probability, without exception |
+| **market** | a posted **moneyline**, de-vigged — an actual traded price, as real as a win probability gets |
+| **market** | a posted **spread**, through a normal curve (σ 13.2) |
+| **model** | everything else — priced off ratings **fitted by least squares** to the lines that do exist (ridge λ=1, which also pins the otherwise-free additive constant) |
 
-A spread becomes a probability through a normal curve (σ 13.2); a week with no
-posted line is priced off team ratings **fitted by least squares to the spreads
-that do exist** (ridge λ=1, which also pins the otherwise-free additive constant).
+The schedule itself is real in all three cases. `market_games` and `model_games`
+ride in `season.js` and the page prints the split under the board.
+
+**SOURCE ORDER: nflverse FIRST, ESPN AS FALLBACK.** nflverse is one CSV on
+`raw.githubusercontent.com` carrying the whole season with spreads *and*
+moneylines; ESPN needs 18 requests and **answered HTTP 403 to a bare `urllib`
+request** — no `Accept` headers is a bot fingerprint, which is why
+`BROWSER_HEADERS` exists and why `get()` prints the response body on a refusal.
+A 403 is a REFUSAL, not a missing page, and the first cut of this file printed
+"a 404 usually means that week is not published yet" *on a 403* — a confident
+wrong diagnosis in the one place you read when something breaks.
+
+**`--lookahead` IS THE ANSWER TO "REAL NUMBERS FOR WEEK 15".** A book has not
+hung a line on week 15 in September, but 4for4 and others publish **lookahead
+spreads** for every team in every week. Paste that table and every fixture gets a
+market number instead of a model one. Two shapes are accepted (a grid, or
+`TEAM,WEEK,SPREAD`), and the **sign convention is the betting one** — negative
+means that team is favoured — which is stated rather than detected, and then
+checked two ways:
+
+- **Both sides of one game must be equal and opposite.** They disagree only if
+  the table is misaligned or the spreads are written from the other perspective.
+- **A correct table puts ZERO spreads on a bye week.** More than `ORPHAN_MAX` (8,
+  slack for a ragged paste) and it refuses. This one had to be tightened after
+  testing: the first cut refused at 20% of parsed cells, which on a 544-cell
+  table is 108, and a one-week column shift produces about 32 — so it waved
+  through exactly the misread it was written to catch.
 
 **NOBODY HAS REAL WIN PROBABILITIES FOR WEEK 15 IN SEPTEMBER, BECAUSE NONE EXIST.**
 Every product you can buy — PoolGenius included — is running this same kind of
