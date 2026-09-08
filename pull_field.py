@@ -75,10 +75,40 @@ def endpoints(gid: str, offset: int = 0, limit: int = PAGE) -> dict:
         "members":      f"{BASE}/challenges/{CHALLENGE}/members/?platform=chui&view=chui_default",
         "propositions": f"{BASE}/propositions/?challengeId={CHALLENGE}&platform=chui&view=chui_default",
     }
-# Hosts worth recording during --discover. ESPN serves its games platform off
-# several; anything under espn.com carrying JSON is worth seeing.
-API_HINT = re.compile(r"(gambit|fantasy|site|sports\.core|lm-api)[\w.-]*\.espn\.com", re.I)
 NOISE = re.compile(r"\.(png|jpg|jpeg|gif|svg|webp|woff2?|ttf|css|js|ico)(\?|$)", re.I)
+# Ad and analytics hosts embed the page URL in their query string, so a filter
+# that reads the whole URL matches every one of them. The ESPN walk returned 29
+# "API calls" of which 22 were rubicon, criteo, doubleclick and friends, matched
+# purely on `fantasy.espn.com` appearing inside `?rf=`. MATCH THE HOST.
+ADTECH = re.compile(r"(doubleclick|rubicon|criteo|openx|tremorhub|adnxs|onelink|"
+                    r"scorecardresearch|chartbeat|parsely|imrworldwide|analytics|"
+                    r"quantserve|moatads|amazon-adsystem|casalemedia|pubmatic|"
+                    r"im-apps|omtrdc|demdex|nielsen|segment|sentry|newrelic|"
+                    r"googletagmanager|google-analytics|facebook|branch\.io)", re.I)
+
+
+def is_api(url: str, site: str) -> bool:
+    """Worth recording? Judged on the HOST plus the path, never the query string."""
+    try:
+        u = urllib.parse.urlparse(url)
+    except ValueError:
+        return False
+    host, path = (u.hostname or "").lower(), (u.path or "").lower()
+    if not host or u.scheme not in ("http", "https"): return False
+    if ADTECH.search(host) or NOISE.search(path): return False
+    same_site = host == site or host.endswith("." + site)
+    apiish = bool(re.search(r"(^|\.)(api|gambit|graphql|gateway|svc)\b", host)
+                  or re.search(r"/(api|graphql|v\d+)(/|$)", path))
+    return same_site or apiish
+
+
+def registrable(url: str) -> str:
+    """example.co.uk-style suffixes are not handled: this only has to be good
+    enough to say 'the site you are looking at', and it is printed so a wrong
+    guess is visible rather than silent."""
+    host = (urllib.parse.urlparse(url).hostname or "").lower()
+    parts = host.split(".")
+    return ".".join(parts[-2:]) if len(parts) >= 2 else host
 
 
 def creds(env_path=None):
@@ -169,7 +199,7 @@ def shape(node, depth=0, path="$"):
         print(f"{pad}{path}: {type(node).__name__} = {v[:70]}")
 
 
-def discover(url: str, env_path=None):
+def discover(url: str, env_path=None, skip_creds=False):
     """Drive the real page through your own session and record what it calls.
     This is the whole point: the endpoint is OBSERVED, never guessed."""
     try:
@@ -182,17 +212,22 @@ def discover(url: str, env_path=None):
             "    open the pool page, F12 -> Network -> filter 'Fetch/XHR', reload,\n"
             "    and copy the request URLs that look like an API. Then run\n"
             "    python pull_field.py --dump \"<that url>\"")
-    seen, cookies = [], creds(env_path)
+    site = registrable(url)
+    print(f"recording calls to {site} and any api-shaped host; ad and analytics "
+          f"hosts are dropped")
+    seen = []
+    cookies = creds(env_path) if not skip_creds else {}
     with sync_playwright() as pw:
         b = pw.chromium.launch(headless=False)          # visible: you may need to click through
         ctx = b.new_context()
-        ctx.add_cookies([{"name": k, "value": v, "domain": ".espn.com", "path": "/"}
-                         for k, v in cookies.items()])
+        if cookies:
+            ctx.add_cookies([{"name": k, "value": v, "domain": ".espn.com", "path": "/"}
+                             for k, v in cookies.items()])
         pg = ctx.new_page()
         pg.on("request", lambda r: (
-            seen.append((r.method, r.url))
-            if API_HINT.search(r.url) and not NOISE.search(r.url) else None))
-        print(f"opening {url}\n  (leave the window open until the pool renders)")
+            seen.append((r.method, r.url)) if is_api(r.url, site) else None))
+        print(f"opening {url}\n  (leave the window open until the pool renders; "
+              f"sign in there if it asks)")
         pg.goto(url, wait_until="networkidle", timeout=90000)
         pg.wait_for_timeout(6000)
         b.close()
@@ -389,6 +424,9 @@ def main():
     ap.add_argument("--env", metavar="PATH",
                     help=r"read SWID/ESPN_S2 from here instead of a local .env "
                          r"(e.g. C:\dev\draftkit\.env) -- better than a second copy")
+    ap.add_argument("--no-creds", action="store_true",
+                    help="open the browser with no stored cookies -- sign in by hand. "
+                         "Use for a site we hold no credentials for yet")
     ap.add_argument("--discover", action="store_true",
                     help="open the page in a browser and print the API calls it makes")
     ap.add_argument("--probe", action="store_true",
@@ -404,7 +442,7 @@ def main():
     a = ap.parse_args()
 
     if a.discover:
-        return discover(a.url, a.env)
+        return discover(a.url, a.env, skip_creds=a.no_creds)
 
     if a.inspect:
         return inspect(pathlib.Path(a.inspect))
