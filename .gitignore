@@ -10,3 +10,4 @@ preview.html
 .env
 field.js
 probe/
+.browser/

@@ -82,6 +82,15 @@ def contest_id(url_or_id: str) -> str:
     return group_id(url_or_id)
 
 
+def splash_ids(url: str) -> dict:
+    """A Splash picks URL carries three ids and they are not interchangeable:
+    /contest/<contestId>/picks?entryId=<entryId>&slateId=<slateId>."""
+    q = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)
+    return {"contest": contest_id(url),
+            "entry": (q.get("entryId") or [None])[0],
+            "slate": (q.get("slateId") or [None])[0]}
+
+
 def splash_endpoints(cid: str) -> dict:
     return {"contest": f"{SPLASH}/contests/{cid}",
             "slates":  f"{SPLASH}/contests/{cid}/slates"}
@@ -239,7 +248,7 @@ def shape(node, depth=0, path="$"):
         print(f"{pad}{path}: {type(node).__name__} = {v[:70]}")
 
 
-def discover(url: str, env_path=None, skip_creds=False):
+def discover(url: str, env_path=None, skip_creds=False, hold=True):
     """Drive the real page through your own session and record what it calls.
     This is the whole point: the endpoint is OBSERVED, never guessed."""
     try:
@@ -257,20 +266,36 @@ def discover(url: str, env_path=None, skip_creds=False):
           f"hosts are dropped")
     seen = []
     cookies = creds(env_path) if not skip_creds else {}
+    # A PERSISTENT PROFILE, so a site we hold no stored credentials for is signed
+    # into ONCE rather than on every run. Gitignored: it holds live session
+    # cookies, the same reason draftkit keeps its browser profiles out of git.
+    profile = HERE / ".browser" / site
+    profile.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as pw:
-        b = pw.chromium.launch(headless=False)          # visible: you may need to click through
-        ctx = b.new_context()
+        ctx = pw.chromium.launch_persistent_context(str(profile), headless=False)
         if cookies:
-            ctx.add_cookies([{"name": k, "value": v, "domain": ".espn.com", "path": "/"}
-                             for k, v in cookies.items()])
-        pg = ctx.new_page()
+            ctx.add_cookies([{"name": k, "value": v, "domain": "." + COOKIE_SCOPE,
+                              "path": "/"} for k, v in cookies.items()])
+        pg = ctx.pages[0] if ctx.pages else ctx.new_page()
         pg.on("request", lambda r: (
             seen.append((r.method, r.url)) if is_api(r.url, site) else None))
-        print(f"opening {url}\n  (leave the window open until the pool renders; "
-              f"sign in there if it asks)")
-        pg.goto(url, wait_until="networkidle", timeout=90000)
-        pg.wait_for_timeout(6000)
-        b.close()
+        print(f"opening {url}")
+        try:
+            pg.goto(url, wait_until="domcontentloaded", timeout=90000)
+        except Exception as e:
+            print(f"  (navigation reported {type(e).__name__}; still recording)")
+        if hold:
+            # Six seconds is not enough to sign in, and a walk that closes mid-login
+            # records the login page rather than the thing you went to look at.
+            print("\n  Sign in if asked, then click through to what you want captured\n"
+                  "  -- the picks page, the entrants list -- and let it RENDER.")
+            try:
+                input("  Press Enter here when done to stop recording... ")
+            except (EOFError, KeyboardInterrupt):
+                pass
+        else:
+            pg.wait_for_timeout(6000)
+        ctx.close()
     if not seen:
         raise SystemExit("No API calls recorded. Either the page never loaded (check the window\n"
                          "  that opened) or the cookies are stale -- sign out of ESPN and back in.")
@@ -464,6 +489,8 @@ def main():
     ap.add_argument("--env", metavar="PATH",
                     help=r"read SWID/ESPN_S2 from here instead of a local .env "
                          r"(e.g. C:\dev\draftkit\.env) -- better than a second copy")
+    ap.add_argument("--no-hold", action="store_true",
+                    help="close the browser after a few seconds instead of waiting for Enter")
     ap.add_argument("--platform", choices=["espn", "splash"], default="espn",
                     help="which pool platform the URL belongs to")
     ap.add_argument("--no-creds", action="store_true",
@@ -484,14 +511,16 @@ def main():
     a = ap.parse_args()
 
     if a.discover:
-        return discover(a.url, a.env, skip_creds=a.no_creds)
+        return discover(a.url, a.env, skip_creds=a.no_creds, hold=not a.no_hold)
 
     if a.inspect:
         return inspect(pathlib.Path(a.inspect))
 
     if a.probe:
         if a.platform == "splash":
-            cid = contest_id(a.url)
+            ids = splash_ids(a.url)
+            print("ids read from the URL: " + ", ".join(f"{k}={v}" for k, v in ids.items()))
+            cid = ids["contest"]
             out_dir = pathlib.Path(a.save) if a.save else None
             if out_dir: out_dir.mkdir(parents=True, exist_ok=True)
             for name, url in splash_endpoints(cid).items():
