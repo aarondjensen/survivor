@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<title>The Attrition Board</title>
+<title>Survivor</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
@@ -243,7 +243,7 @@ footer b{color:var(--ink2);font-weight:600}
 <header class="mast">
   <div class="wrap">
     <div class="brand">
-      <h1>The Attrition Board</h1>
+      <h1>Survivor</h1>
       <p class="sub">One team a week, each of them only once. Plan all eighteen weeks at once &mdash; then
         weigh what a pick wins you this Sunday against what burning that team costs you in November.</p>
     </div>
@@ -422,7 +422,7 @@ const SAMPLE =
 ;
 "use strict";
 /* ============================================================================
-   THE ATTRITION BOARD
+   SURVIVOR
    A survivor pool is an assignment problem wearing a weekly disguise: one team
    per week, each team at most once, maximise the chance of getting through all
    of them. That is exactly a rectangular assignment, so it is solved exactly
@@ -876,7 +876,7 @@ function render() {
 
 /* ================================================================ events === */
 const KEYS = ["week", "pool", "entries", "lam", "doubles", "used", "pins", "grid", "own", "ratings"];
-const SKEY = "attrition.board.v1";
+const SKEY = "survivor.board.v1", SKEY_WAS = "attrition.board.v1"; // renamed; still reads the old key
 let DB = null, saveTimer = null;
 
 function snapshot() { const o = { ts: Date.now() }; for (const k of KEYS) o[k] = S[k]; return o; }
@@ -1074,7 +1074,7 @@ async function claudeUse(name) {
   try { return (typeof claude !== "undefined" && claude.use) ? await claude.use(name) : null; }
   catch (e) { return null; }
 }
-try { adopt(JSON.parse(localStorage.getItem(SKEY) || "null")); } catch (e) { /* ignore */ }
+try { adopt(JSON.parse(localStorage.getItem(SKEY) || localStorage.getItem(SKEY_WAS) || "null")); } catch (e) { /* ignore */ }
 render();
 
 (async () => {

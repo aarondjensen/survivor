@@ -1,4 +1,4 @@
-# CLAUDE.md — attrition-board
+# CLAUDE.md — survivor
 
 An NFL survivor pool optimizer. One self-contained HTML file, no server, no build
 step, no dependencies. Open `index.html` and it works.

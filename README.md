@@ -1,4 +1,4 @@
-# The Attrition Board
+# Survivor
 
 An NFL survivor pool optimizer. Pick one team a week, each team only once, and be
 the last one standing — so the question at any given week is never "who wins this
