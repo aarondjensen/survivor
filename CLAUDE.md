@@ -462,6 +462,42 @@ because an unmatched code joins to nothing, that team silently drops out, and
 every remaining number still looks like a number — the Michael Carter rule, one
 platform over.
 
+## THE CONTEST BECOMES A TAB, AND IT WRITES ITS OWN FILE
+
+`python pull_field.py --platform splash <url>` writes **`splash.js`**, and the
+board seeds a pool tab from it — named and sized from the contest rather than
+typed. Pool tabs existed for a week before this did, which is the shelf without
+the stock: *"I don't see the Splash Sports pool in the website"* is exactly what
+a mechanism with nothing driving it looks like.
+
+**ITS OWN FILE, NOT `field.js`.** Two pullers writing one file means whichever
+ran last wins and the other pool silently vanishes — and `field.js` is ESPN's
+ownership, which every tab reads. Same convention as `season.js`: absent, the
+`<script>` 404s and not one number moves.
+
+**IT REFUSES A CONTEST THAT IS NOT THIS GAME.** The solver models one team a
+week, each at most once, one life, and the contest STATES all three
+(`pickReuseLimit 0`, `entryLives 1`, `expectedPicksCount 1`, `slateCount 18`).
+Checked, not assumed: a contest with two lives would render on this board
+perfectly and be a different game. `--force` overrides and says so.
+
+**`entries.filled` IS THE SIZE AND IT MOVES.** 112 of a 1,000 cap today. A
+cap-and-fill contest keeps filling until the deadline and every leverage number
+is share-of-pool, so this is re-pulled on the morning of the draft rather than
+trusted from August.
+
+**SEEDING IS ONCE PER SOURCE, EVER.** `S.seeded` records the ids already offered
+a tab, so a tab you DELETE stays deleted while the pull that created it goes on
+succeeding — otherwise removal is impossible and the delete button lies. The key
+is `src` (an id: `espn`, `splash:<contestId>`), never the name, so renaming a tab
+cannot make it look like a different contest and two Splash contests cannot
+collapse into one. `src` and `name` are identity and stay out of `POOL_KEYS`;
+everything else on a record is carried by the switch.
+
+**AND ITS OWNERSHIP IS `null`, DELIBERATELY.** Splash publishes none, so the tab
+falls through to ESPN's measured counters as a proxy — stated on the page, never
+silently.
+
 ## ONE SCHEDULE, SEVERAL POOLS
 
 A 25-man ESPN pool and a large-field Splash contest are the same eighteen weeks and

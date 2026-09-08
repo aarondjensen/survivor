@@ -70,6 +70,10 @@ the win probabilities did not already carry, and the leverage half is then corre
 arithmetic over invented input. `pull_field.py` is the fix: it reads your ESPN pool
 for who is still alive and which teams they have already spent.
 
+**Adding a pool is a pull, not typing.** `python pull_field.py --platform splash <contest url>`
+writes `splash.js` and a tab appears, named and sized from the contest — its own file,
+because two pullers writing one would mean whichever ran last wins.
+
 **Several pools, one schedule.** Pool tabs above the setup bar: each carries its own
 size, entries, leverage weight, burned teams and pasted ownership; the schedule, the
 grid and the ratings are shared. A 25-man ESPN pool and a large-field Splash contest

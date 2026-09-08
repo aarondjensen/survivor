@@ -12,3 +12,4 @@ field.js
 probe/
 .browser/
 *.har
+splash.js

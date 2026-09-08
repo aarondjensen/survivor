@@ -8,7 +8,7 @@ const fs = require("fs"), path = require("path");
 const h = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
 const js = h.slice(h.indexOf("<script>\nconst EMBEDDED_SAMPLE") + 8,
                    h.indexOf("/* ============================================================ presentation ==="));
-const api = new Function(js + "\n return {S,POOL_KEYS,blankPool,stash,loadPool,ensurePools,BY_ABBR};")();
+const api = new Function(js + "\n return {S,POOL_KEYS,blankPool,stash,loadPool,ensurePools,poolSources,BY_ABBR};")();
 const { S, POOL_KEYS, blankPool, stash, loadPool, ensurePools } = api;
 
 let fails = 0;
@@ -61,6 +61,26 @@ ok("a stale pool index clamps rather than blanking the board",
 ok("every field on a pool record is carried by the switch",
    Object.keys(blankPool("x")).every(k => k === "name" || POOL_KEYS.includes(k)),
    Object.keys(blankPool("x")).filter(k => k !== "name" && !POOL_KEYS.includes(k)).join(" "));
+
+/* Seeding. With no FIELD and no SPLASH there is nothing to seed FROM, which is
+   the published-artifact case and must still give you a usable board. */
+S.pools = null; S.pi = 0; S.seeded = null;
+S.pool = 500; S.used = []; S.lam = null;
+ensurePools();
+ok("no pull at all still yields one usable pool",
+   S.pools.length === 1 && S.pools[0].name === "Pool 1" && Array.isArray(S.seeded));
+
+/* A tab you deleted must stay deleted even though the pull that created it goes
+   on succeeding -- otherwise removal is impossible and the delete button lies. */
+S.pools = [{ name: "ESPN", src: "espn", pool: 25, entries: 1, lam: null, used: [], pins: [], own: null }];
+S.pi = 0; S.seeded = ["espn", "splash:abc"];
+ensurePools();
+ok("a source already seeded is not offered a second tab", S.pools.length === 1);
+
+/* `src` is IDENTITY and `name` is a label, so neither is carried by the switch;
+   everything else on a record must be. */
+ok("every live field on a pool record is carried by the switch",
+   Object.keys(blankPool("x")).every(k => k === "name" || k === "src" || POOL_KEYS.includes(k)));
 
 console.log(fails ? `\n${fails} FAILED` : "\nall passed");
 process.exit(fails ? 1 : 0);
