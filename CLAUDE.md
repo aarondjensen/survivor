@@ -333,6 +333,28 @@ this pool, so the reveal is expected once a week locks; whether it arrives on
 this endpoint or another is a MEASUREMENT, and `--inspect A --against B` is how
 it gets made rather than remembered.
 
+**A SELECTION IS NOT A DECISION UNTIL IT LOCKS, AND CONFLATING THE TWO MUTED THE
+ONE QUESTION THE BOARD EXISTS TO ANSWER.** ESPN saves your pick the moment you
+make it and lets you change it until kickoff, so `mine` holds a live selection as
+readily as a settled one — and the first cut burned both. Burning a LIVE one takes
+that team out of this week's candidate list, so the board could not recommend it
+even if it were the best pick on the slate; and what it renders is the team you
+have selected, marked gone, beside a call for somebody else. Asked directly —
+*"that's what the optimizer is telling me to do right?"* — the honest answer was
+no, it is what the optimizer was told, and nothing on the screen said so.
+
+SETTLED is `week < FIELD.week`, or `== FIELD.week` and ESPN reports the period
+locked. Both facts come off the same pull, so this is read from the platform and
+not judged here. Anything else is PROVISIONAL: shown as what you have in, never
+burned, and the week does not advance past it, because that week is still a
+decision. The note names the two separately, since only one of them moved the
+board.
+
+**`settled` IS A FUNCTION DECLARATION AND NOT A `const`.** The field note renders
+above the line that defines it and calls it, so a `const` sits in its temporal
+dead zone there — which throws, and the boot catch would leave a board that looks
+merely empty rather than broken. Caught by the browser test, not by reading it.
+
 **THE BURN AND THE WEEK ADVANCE ARE ONE FACT AND MUST LAND TOGETHER.** Burning a
 team takes it off the board for EVERY week including the one on screen. So a
 board left sitting on a week you have already filed shows a call for THAT week

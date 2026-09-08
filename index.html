@@ -1311,13 +1311,25 @@ if (FIELD) {
     "because a measured proxy beats a modelled one and no other platform publishes " +
     "counts. Paste your own numbers over them whenever you have better \u2014 " +
     "pasted ownership belongs to the pool it was pasted into." +
-    (FIELD.mine && FIELD.mine.length
-      ? " <b>Your " + FIELD.mine.length + " submitted pick" + (FIELD.mine.length > 1 ? "s are" : " is") +
-        "</b> already in, so the board is planning from the next week on: " +
-        FIELD.mine.map(m => esc(m.team) + " (wk " + esc(m.week) + ")").join(", ") +
-        ". A pull only ever adds \u2014 a team you burned here by hand stays burned, " +
-        "and the week never moves backwards."
-      : "");
+    (FIELD.mine && FIELD.mine.length ? mineNote() : "");
+}
+function mineNote() {
+  const done = FIELD.mine.filter(settled), live = FIELD.mine.filter(m => !settled(m));
+  const list = a => a.map(m => "<b>" + esc(m.team) + "</b> (wk " + esc(m.week) + ")").join(", ");
+  let out = "";
+  if (done.length)
+    out += " Your " + done.length + " settled pick" + (done.length > 1 ? "s" : "") + " \u2014 " +
+      list(done) + " \u2014 " + (done.length > 1 ? "are" : "is") +
+      " burned, and the board plans from the next week on. A pull only ever adds: a team " +
+      "you burned by hand stays burned, and the week never moves backwards.";
+  if (live.length)
+    out += " <b>ESPN already has " + list(live) + " selected for you, and " +
+      (live.length > 1 ? "those weeks are" : "that week is") + " not locked yet.</b> " +
+      (live.length > 1 ? "They are" : "It is") + " deliberately NOT burned \u2014 that is your " +
+      "current selection, not a decision the board made, and burning it would take it out of " +
+      "the candidates so the board could not recommend it even if it were the best pick on " +
+      "the slate. Compare it against the call above and change whichever you like on ESPN.";
+  return out;
 }
 if (IS_REAL) {
   $("#provenance").innerHTML = "<b>Real slate loaded from season.js.</b> " + esc(SAMPLE.note || "") +
@@ -1339,8 +1351,28 @@ if (!hadSaved && FIELD && FIELD.group && FIELD.group.surviving) S.pool = FIELD.g
    also where you plan a pick you have not submitted yet -- so a pull must not
    quietly un-burn a team you burned here on purpose. Deliberately not merged
    into the other tabs: it is this pool's record and nobody else's. */
+/* A SELECTION IS NOT A DECISION UNTIL IT LOCKS, AND CONFLATING THE TWO MUTED
+   THE ONE QUESTION THE BOARD EXISTS TO ANSWER. ESPN saves your pick the moment
+   you make it and lets you change it until kickoff, so `mine` holds a live
+   selection as readily as a settled one. Burning a live one takes that team out
+   of this week's candidates -- so the board could not recommend it even if it
+   were the best pick on the slate, and the reading on screen is that the tool
+   endorsed the team it had actually just been told about.
+
+   SETTLED means the week is behind the current one, or it is the current one
+   and ESPN says it is locked. Both come off the same pull (`week`, `locked`),
+   so this is read from the platform rather than judged here. Anything else is
+   PROVISIONAL: shown as what you have in, never burned, and the week does not
+   advance past it -- that week is still a decision. */
+/* A DECLARATION, NOT A const: the field note above renders before this line is
+   reached and calls it, and a const would be in its temporal dead zone there --
+   which throws, and the boot catch would leave a board that looks merely empty. */
+function settled(m) {
+  if (!FIELD || FIELD.week == null) return true;   // no week reported: nothing to be live
+  return m.week < FIELD.week || (m.week === FIELD.week && !!FIELD.locked);
+}
 if (FIELD && Array.isArray(FIELD.mine)) {
-  for (const m of FIELD.mine) {
+  for (const m of FIELD.mine.filter(settled)) {
     const t = BY_ABBR.has(m.team) ? BY_ABBR.get(m.team) : -1;
     if (t >= 0 && !S.used.includes(t)) S.used.push(t);
   }
@@ -1355,7 +1387,7 @@ if (FIELD && Array.isArray(FIELD.mine)) {
      longer gated on having no saved board, which is exactly the case that
      produced the incoherent view -- a first-time load starts at week 0 and
      could not hit it. */
-  const filed = FIELD.mine.reduce((a, m) => Math.max(a, m.week), 0);
+  const filed = FIELD.mine.filter(settled).reduce((a, m) => Math.max(a, m.week), 0);
   if (filed > 0) S.week = Math.max(S.week, Math.min(W - 1, filed));
 }
 ensurePools();          /* after the FIELD defaults, or pool one is born at 500 */
