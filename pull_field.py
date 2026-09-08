@@ -638,11 +638,32 @@ def from_har(path: pathlib.Path, site: str | None = None):
     print("Names are redacted. Paste the shapes -- never the HAR: it holds your cookies.")
 
 
+ESPN_DEFAULT = f"https://fantasy.espn.com/games/{GAME}/group"
+
+
+def resolve_url(flag, positional):
+    """--url, else a bare URL, else the ESPN pool page.
+
+    THE DEFAULT LIVES HERE AND NOT ON THE FLAG. With `default=ESPN_DEFAULT` on
+    --url the flag is never falsy, so a Splash URL typed bare would be overruled
+    by a default nobody asked for -- and it would walk the ESPN pool while the
+    command on screen names a Splash contest."""
+    return flag or positional or ESPN_DEFAULT
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--url", default=f"https://fantasy.espn.com/games/{GAME}/group",
+    ap.add_argument("--url", default=None,
                     help="your pool's page, the one with ?id=<uuid>")
+    # AND THE SAME THING WITHOUT THE FLAG. Every example of this command ends in
+    # a URL, so typing it bare is the natural gesture -- and argparse answered a
+    # correctly-formed command with `unrecognized arguments`. It is only ever a
+    # URL in that position, so there is nothing for a positional to be confused
+    # with. --url still works and wins if both are given, since passing the flag
+    # is the more deliberate of the two.
+    ap.add_argument("url_pos", nargs="?", metavar="URL",
+                    help="the same thing without the flag")
     ap.add_argument("--env", metavar="PATH",
                     help=r"read SWID/ESPN_S2 from here instead of a local .env "
                          r"(e.g. C:\dev\draftkit\.env) -- better than a second copy")
@@ -672,6 +693,7 @@ def main():
                     help="read what --probe --save wrote and print the parts a parser keys on")
     ap.add_argument("--dump", metavar="URL", help="fetch one endpoint and describe the response")
     a = ap.parse_args()
+    a.url = resolve_url(a.url, a.url_pos)
 
     if a.discover:
         return discover(a.url, a.env, skip_creds=a.no_creds, hold=not a.no_hold)

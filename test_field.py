@@ -90,3 +90,14 @@ def test_a_lookalike_host_is_not_under_the_scope():
     assert not F.under("notespn.com", F.COOKIE_SCOPE)
     assert F.under("api.splashsports.com", F.SPLASH_SCOPE)
     assert F.under("espn.com", F.COOKIE_SCOPE)
+
+
+def test_a_bare_url_is_not_overruled_by_the_espn_default():
+    # argparse answered a correctly-formed command with `unrecognized arguments`
+    # before the positional existed. The half that would be worse: a default on
+    # the flag makes it never falsy, so a bare Splash URL walks the ESPN pool
+    # while the command on screen names a Splash contest.
+    assert F.resolve_url(None, PICKS) == PICKS
+    assert F.resolve_url(PICKS, None) == PICKS
+    assert F.resolve_url("https://flag.example", PICKS) == "https://flag.example"
+    assert F.resolve_url(None, None) == F.ESPN_DEFAULT
