@@ -1,0 +1,1092 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>The Attrition Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* ---- tokens: light is the base set; both dark paths redefine only these ---- */
+:root{
+  --bg:#F1F4F2; --panel:#FFFFFF; --panel2:#E8EDEA; --sunk:#DFE6E2;
+  --line:#D2DAD6; --line2:#BFC9C4;
+  --ink:#121816; --ink2:#4B5854; --ink3:#7C8985;
+  --accent:#A96D14; --accent-line:#C99239; --accent-soft:#FAEDD6; --accent-ink:#7C4F0A;
+  --good:#1B7255; --warn:#A06714; --crit:#A83324;
+  --ramp-0:#EEF3F1; --ramp-1:#D2E4DC; --ramp-2:#A8CFC2; --ramp-3:#71B39D; --ramp-4:#3D8E76; --ramp-5:#1D6A55;
+  --rfg-0:#5C6A66; --rfg-1:#22403A; --rfg-2:#123027; --rfg-3:#08251D; --rfg-4:#EAF5F1; --rfg-5:#EAF5F1;
+  --shadow:0 1px 2px rgba(18,24,22,.06), 0 6px 18px rgba(18,24,22,.05);
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,Segoe UI,sans-serif;
+  --disp:"Archivo","IBM Plex Sans",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0D1312; --panel:#151D1B; --panel2:#1D2724; --sunk:#111917;
+  --line:#2A3733; --line2:#3A4A45;
+  --ink:#E7EDEA; --ink2:#A2B0AB; --ink3:#74827E;
+  --accent:#E0A94C; --accent-line:#8A6526; --accent-soft:#33270F; --accent-ink:#F0C67E;
+  --good:#3EA383; --warn:#D5A044; --crit:#E27264;
+  --ramp-0:#18211F; --ramp-1:#1B3630; --ramp-2:#1F4E43; --ramp-3:#256B5A; --ramp-4:#328B74; --ramp-5:#48AE91;
+  --rfg-0:#8A9995; --rfg-1:#9FC4B8; --rfg-2:#CFE7DE; --rfg-3:#E4F3ED; --rfg-4:#08201A; --rfg-5:#062018;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 22px rgba(0,0,0,.28);
+}}
+:root[data-theme="dark"]{
+  --bg:#0D1312; --panel:#151D1B; --panel2:#1D2724; --sunk:#111917;
+  --line:#2A3733; --line2:#3A4A45;
+  --ink:#E7EDEA; --ink2:#A2B0AB; --ink3:#74827E;
+  --accent:#E0A94C; --accent-line:#8A6526; --accent-soft:#33270F; --accent-ink:#F0C67E;
+  --good:#3EA383; --warn:#D5A044; --crit:#E27264;
+  --ramp-0:#18211F; --ramp-1:#1B3630; --ramp-2:#1F4E43; --ramp-3:#256B5A; --ramp-4:#328B74; --ramp-5:#48AE91;
+  --rfg-0:#8A9995; --rfg-1:#9FC4B8; --rfg-2:#CFE7DE; --rfg-3:#E4F3ED; --rfg-4:#08201A; --rfg-5:#062018;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 22px rgba(0,0,0,.28);
+}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;padding:0 0 64px}
+.wrap{max-width:1360px;margin:0 auto;padding:0 20px}
+h1,h2,h3{font-family:var(--disp);text-wrap:balance;margin:0}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+button,input,select{font-family:inherit;font-size:16px;color:inherit}
+:focus-visible{outline:2px solid var(--accent-line);outline-offset:2px;border-radius:3px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---- masthead ---- */
+.mast{border-bottom:1px solid var(--line);background:var(--panel);margin-bottom:22px}
+.mast .wrap{display:flex;align-items:flex-end;gap:20px;flex-wrap:wrap;padding-top:22px;padding-bottom:18px}
+.brand{flex:1 1 320px}
+.brand h1{font-size:31px;font-weight:800;letter-spacing:-.025em;line-height:1.04}
+.brand .sub{color:var(--ink2);font-size:13.5px;margin-top:5px;max-width:62ch}
+.stamp{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--accent-line);color:var(--accent-ink);
+  background:var(--accent-soft);border-radius:2px;padding:5px 9px;font-size:11px;font-weight:600;
+  letter-spacing:.07em;text-transform:uppercase;font-family:var(--mono)}
+.stamp b{font-weight:600}
+
+/* ---- section chrome: the eyebrow names the pillar it implements ---- */
+section{margin-bottom:30px}
+.shead{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:12px;
+  border-bottom:1px solid var(--line);padding-bottom:9px}
+.eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--ink3);border:1px solid var(--line2);border-radius:2px;padding:3px 7px;white-space:nowrap}
+.shead h2{font-size:19px;font-weight:700;letter-spacing:-.015em}
+.shead .hint{color:var(--ink3);font-size:12.5px;margin-left:auto;text-align:right}
+
+/* ---- setup bar ---- */
+.setup{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:1px;
+  background:var(--line);border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.fld{background:var(--panel);padding:10px 13px 11px;display:flex;flex-direction:column;gap:5px;min-width:0}
+.fld label{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3)}
+.fld input,.fld select{background:var(--sunk);border:1px solid var(--line);border-radius:3px;
+  padding:6px 8px;font-family:var(--mono);font-size:15px;font-weight:500;width:100%;min-width:0}
+.fld .foot{font-size:11px;color:var(--ink3);font-family:var(--mono)}
+.fld.lev input[type=range]{padding:0;background:none;border:none;accent-color:var(--accent)}
+
+/* ---- the call ---- */
+.callgrid{display:grid;grid-template-columns:minmax(280px,1fr) minmax(440px,1.9fr);gap:18px;align-items:start}
+.pickcard{background:var(--panel);border:1px solid var(--accent-line);border-radius:5px;box-shadow:var(--shadow);
+  overflow:hidden;position:relative}
+.pickcard .cap{background:var(--accent-soft);border-bottom:1px solid var(--accent-line);color:var(--accent-ink);
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;padding:6px 15px;font-weight:600}
+.pickcard .body{padding:15px}
+.pickteam{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.pickteam .ab{font-family:var(--disp);font-size:42px;font-weight:800;letter-spacing:-.03em;line-height:.95}
+.pickteam .vs{color:var(--ink2);font-size:13.5px;font-family:var(--mono)}
+.pickname{color:var(--ink2);font-size:13px;margin-top:3px}
+.why{margin-top:13px;padding-top:13px;border-top:1px solid var(--line);font-size:13.5px;color:var(--ink2);line-height:1.55}
+.why b{color:var(--ink);font-weight:600}
+.mini{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);
+  border:1px solid var(--line);border-radius:4px;margin-top:14px;overflow:hidden}
+.mini div{background:var(--panel);padding:8px 10px}
+.mini .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink3)}
+.mini .v{font-family:var(--mono);font-size:19px;font-weight:600;margin-top:1px;letter-spacing:-.02em}
+.alts{margin-top:13px;font-size:12.5px;color:var(--ink2)}
+.alts .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink3);
+  display:block;margin-bottom:5px}
+.alts .row{display:flex;gap:8px;align-items:baseline;padding:3px 0;border-top:1px dotted var(--line)}
+.alts .row b{font-family:var(--mono);font-weight:600;min-width:38px}
+.alts .row span{margin-left:auto;font-family:var(--mono);color:var(--ink3);font-size:11.5px}
+
+/* ---- candidate table ---- */
+.tblwrap{background:var(--panel);border:1px solid var(--line);border-radius:5px;overflow:auto;
+  box-shadow:var(--shadow);max-height:min(64vh,486px)}
+table.cand{border-collapse:collapse;width:100%;min-width:660px}
+table.cand th{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--ink3);text-align:right;padding:9px 9px 7px;border-bottom:1px solid var(--line2);
+  background:var(--panel);position:sticky;top:0;white-space:nowrap;font-weight:500}
+table.cand th:nth-child(-n+2),table.cand td:nth-child(-n+2){text-align:left}
+table.cand th.sortable{cursor:pointer;user-select:none}
+table.cand th.sortable:hover{color:var(--ink)}
+table.cand th .car{opacity:.45;font-size:8px}
+table.cand td{padding:6px 9px;border-bottom:1px solid var(--line);text-align:right;
+  font-family:var(--mono);font-size:13px;white-space:nowrap}
+table.cand tr:last-child td{border-bottom:none}
+table.cand tbody tr{cursor:pointer}
+@media (hover:hover){table.cand tbody tr:hover td{background:var(--panel2)}}
+table.cand tr.top td{background:var(--accent-soft)}
+@media (hover:hover){table.cand tr.top:hover td{background:var(--accent-soft);filter:brightness(.97)}}
+.tm{font-family:var(--disp);font-weight:700;font-size:14px;letter-spacing:-.01em}
+.opp{color:var(--ink3);font-size:12px}
+.bar{display:inline-block;vertical-align:middle;height:7px;border-radius:1px;background:var(--ink3);opacity:.5;margin-right:6px}
+.lev-up{color:var(--good);font-weight:600}
+.lev-dn{color:var(--ink3)}
+.cost-hi{color:var(--crit)}
+.cost-md{color:var(--warn)}
+.pill{display:inline-block;font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;
+  border:1px solid var(--line2);border-radius:2px;padding:1px 5px;color:var(--ink3);margin-left:5px}
+
+/* ---- the path ---- */
+.path{display:flex;gap:1px;overflow-x:auto;background:var(--line);border:1px solid var(--line);
+  border-radius:5px;padding:1px;scrollbar-width:thin}
+.wk{background:var(--panel);min-width:69px;flex:1 1 69px;padding:8px 7px 9px;display:flex;flex-direction:column;gap:3px}
+.wk .n{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
+.wk .t{font-family:var(--disp);font-weight:800;font-size:20px;letter-spacing:-.02em;line-height:1}
+.wk .p{font-family:var(--mono);font-size:11.5px;color:var(--ink2)}
+.wk .o{font-family:var(--mono);font-size:10px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wk.now{background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent-line)}
+.wk.now .n{color:var(--accent-ink)}
+.wk.pinned .t::after{content:"\00a0◆";font-size:9px;color:var(--accent);vertical-align:middle}
+.wk.gone{background:var(--sunk)}
+.wk.gone .t{color:var(--crit);font-size:12px;font-weight:600;padding-top:5px}
+.survline{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:11px;font-size:13px;color:var(--ink2)}
+.survline .big{font-family:var(--mono);font-size:22px;font-weight:600;color:var(--ink);letter-spacing:-.02em}
+
+/* ---- the board / heatmap ---- */
+.boardwrap{background:var(--panel);border:1px solid var(--line);border-radius:5px;overflow:auto;
+  box-shadow:var(--shadow);max-height:min(74vh,720px)}
+table.grid{border-collapse:separate;border-spacing:0;width:100%;min-width:820px}
+table.grid th{font-family:var(--mono);font-size:10px;font-weight:500;color:var(--ink3);
+  background:var(--panel);position:sticky;top:0;z-index:2;padding:6px 3px;border-bottom:1px solid var(--line2)}
+table.grid th.fv,table.grid td.fv{text-align:right;padding-right:9px}
+table.grid th.corner{left:0;z-index:4;text-align:left;padding-left:11px}
+table.grid td.tmc{position:sticky;left:0;z-index:1;background:var(--panel);border-right:1px solid var(--line);
+  padding:0 8px 0 11px;white-space:nowrap;border-bottom:1px solid var(--line)}
+table.grid tbody tr.used td.tmc{background:var(--sunk)}
+.tmbtn{background:none;border:none;padding:4px 0;display:flex;align-items:baseline;gap:6px;cursor:pointer;width:100%;text-align:left}
+.tmbtn .ab{font-family:var(--disp);font-weight:700;font-size:13px;min-width:34px;letter-spacing:-.01em}
+.tmbtn .dv{font-family:var(--mono);font-size:9.5px;color:var(--ink3)}
+tr.used .tmbtn .ab{text-decoration:line-through;color:var(--ink3)}
+td.cell{padding:0;border-bottom:1px solid var(--line);border-right:1px solid var(--line)}
+td.cell button{width:100%;min-width:34px;height:26px;border:none;background:transparent;cursor:pointer;
+  font-family:var(--mono);font-size:11px;font-weight:500;display:block;padding:0;letter-spacing:-.02em}
+td.cell.bye{background:var(--sunk)}
+td.cell.bye button{color:var(--ink3);cursor:default;font-size:9px}
+tr.used td.cell button{opacity:.3}
+td.cell.onpath{box-shadow:inset 0 0 0 2px var(--accent)}
+td.cell.pinned button::after{content:"◆";font-size:7px;vertical-align:super;margin-left:1px}
+td.cell.past button{opacity:.28}
+td.fv{font-family:var(--mono);font-size:11.5px;color:var(--ink2);border-bottom:1px solid var(--line);
+  white-space:nowrap;background:var(--panel)}
+tr.used td.fv{background:var(--sunk);color:var(--ink3)}
+.legend{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--ink2)}
+.legend .sw{display:flex;align-items:center;gap:2px}
+.legend .sw i{width:22px;height:11px;display:block;border:1px solid var(--line)}
+.legend .lb{font-family:var(--mono);font-size:10.5px;color:var(--ink3)}
+.legend .key{display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10.5px;color:var(--ink3)}
+.legend .key i{width:13px;height:13px;display:block;border:1px solid var(--line)}
+.legend .key i.pathk{box-shadow:inset 0 0 0 2px var(--accent);background:var(--panel)}
+.legend .key i.byek{background:var(--sunk)}
+
+/* ---- inputs drawer ---- */
+details.inputs{background:var(--panel);border:1px solid var(--line);border-radius:5px;overflow:hidden}
+details.inputs>summary{cursor:pointer;padding:11px 15px;font-family:var(--mono);font-size:11px;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--ink2);list-style:none;display:flex;
+  align-items:center;gap:9px;background:var(--panel2)}
+details.inputs>summary::-webkit-details-marker{display:none}
+details.inputs>summary::before{content:"▸";font-size:10px;color:var(--ink3)}
+details.inputs[open]>summary::before{content:"▾"}
+.dbody{padding:15px;display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:20px}
+.dbody h3{font-size:13px;font-weight:700;margin-bottom:4px}
+.dbody p{color:var(--ink2);font-size:12.5px;margin:0 0 9px}
+textarea{width:100%;min-height:112px;background:var(--sunk);color:var(--ink);border:1px solid var(--line);
+  border-radius:3px;padding:8px;font-family:var(--mono);font-size:12px;resize:vertical}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}
+button.act{background:var(--panel2);border:1px solid var(--line2);border-radius:3px;padding:7px 12px;
+  font-size:13px;font-weight:500;cursor:pointer;color:var(--ink)}
+@media (hover:hover){button.act:hover{background:var(--sunk);border-color:var(--ink3)}}
+button.act.primary{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent-ink);font-weight:600}
+.ratings{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:5px;max-height:230px;overflow:auto;
+  padding-right:4px}
+.ratings label{display:flex;align-items:center;gap:5px;font-family:var(--mono);font-size:11px}
+.ratings label b{min-width:30px;font-weight:600}
+.ratings input{width:100%;min-width:0;background:var(--sunk);border:1px solid var(--line);border-radius:3px;
+  padding:3px 5px;font-family:var(--mono);font-size:12px}
+.msg{font-size:12.5px;color:var(--ink2);margin-top:8px;min-height:18px;font-family:var(--mono)}
+.msg.err{color:var(--crit)}
+.msg.ok{color:var(--good)}
+.warnbox{border:1px solid var(--crit);border-radius:4px;padding:10px 13px;background:var(--panel);
+  color:var(--crit);font-size:13px;margin-bottom:14px;font-family:var(--mono)}
+
+/* ---- tooltip ---- */
+#tip{position:fixed;z-index:60;pointer-events:none;background:var(--panel);border:1px solid var(--line2);
+  border-radius:4px;padding:8px 10px;box-shadow:var(--shadow);font-size:12px;max-width:240px;
+  opacity:0;transition:opacity .1s}
+#tip.on{opacity:1}
+#tip .t1{font-family:var(--disp);font-weight:700;font-size:13px;margin-bottom:3px}
+#tip .r{display:flex;justify-content:space-between;gap:14px;font-family:var(--mono);font-size:11.5px;color:var(--ink2)}
+#tip .r b{color:var(--ink);font-weight:600}
+#tip .hint{color:var(--ink3);font-size:10.5px;margin-top:5px;font-family:var(--mono)}
+
+footer{color:var(--ink3);font-size:12px;border-top:1px solid var(--line);padding-top:14px;line-height:1.6}
+footer b{color:var(--ink2);font-weight:600}
+
+@media (max-width:900px){
+  .callgrid{grid-template-columns:1fr}
+  .brand h1{font-size:25px}
+  .shead .hint{margin-left:0;text-align:left;flex-basis:100%}
+}
+</style>
+</head>
+<body>
+<header class="mast">
+  <div class="wrap">
+    <div class="brand">
+      <h1>The Attrition Board</h1>
+      <p class="sub">One team a week, each of them only once. Plan all eighteen weeks at once &mdash; then
+        weigh what a pick wins you this Sunday against what burning that team costs you in November.</p>
+    </div>
+    <div class="stamp" id="datastamp" title="Where the numbers on this board came from">
+      <span id="stamptext">Sample season &mdash; not the real slate</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div id="fatal"></div>
+
+  <section id="setup-sec">
+    <div class="shead">
+      <span class="eyebrow">Your pool</span>
+      <h2>Nobody else&rsquo;s pool is your pool</h2>
+      <span class="hint">Size drives everything below. Fifty entries and fifty thousand are different games.</span>
+    </div>
+    <div class="setup">
+      <div class="fld">
+        <label for="f-week">Picking for week</label>
+        <select id="f-week"></select>
+        <span class="foot" id="weeks-left"></span>
+      </div>
+      <div class="fld">
+        <label for="f-pool">Entries in pool</label>
+        <input id="f-pool" type="number" min="2" max="500000" step="1" value="500">
+        <span class="foot" id="pool-foot"></span>
+      </div>
+      <div class="fld">
+        <label for="f-entries">Your entries</label>
+        <input id="f-entries" type="number" min="1" max="20" step="1" value="1">
+        <span class="foot">picks to diversify</span>
+      </div>
+      <div class="fld lev">
+        <label for="f-lev">Leverage weight &lambda;</label>
+        <input id="f-lev" type="range" min="0" max="1.5" step="0.05" value="0.85">
+        <span class="foot" id="lev-foot"></span>
+      </div>
+      <div class="fld">
+        <label for="f-doubles">Double-pick weeks</label>
+        <input id="f-doubles" type="text" inputmode="numeric" placeholder="e.g. 12, 18" value="">
+        <span class="foot">two teams that week</span>
+      </div>
+      <div class="fld">
+        <label for="f-used">Teams already burned</label>
+        <input id="f-used" type="text" placeholder="none yet" autocomplete="off">
+        <span class="foot" id="used-foot">click a team name in the board</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="call-sec">
+    <div class="shead">
+      <span class="eyebrow">Pillar 3 &middot; Leverage</span>
+      <h2 id="call-h">This week&rsquo;s call</h2>
+      <span class="hint">You are not playing the NFL. You are playing everyone else in the pool.</span>
+    </div>
+    <div class="callgrid">
+      <div class="pickcard" id="pickcard"></div>
+      <div class="tblwrap">
+        <table class="cand">
+          <thead><tr id="cand-head"></tr></thead>
+          <tbody id="cand-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="path-sec">
+    <div class="shead">
+      <span class="eyebrow">Pillar 1 &middot; The season plan</span>
+      <h2>The whole path, not this Sunday</h2>
+      <span class="hint">A plan is a plan. Re-run it every week &mdash; injuries and form will move it.</span>
+    </div>
+    <div class="path" id="path"></div>
+    <div class="survline" id="survline"></div>
+  </section>
+
+  <section id="board-sec">
+    <div class="shead">
+      <span class="eyebrow">Pillar 2 &middot; Future value</span>
+      <h2>Every team, every week</h2>
+      <span class="hint">Click a cell to pin a team to a week &middot; click a team to burn it</span>
+    </div>
+    <div class="boardwrap">
+      <table class="grid">
+        <thead><tr id="grid-head"></tr></thead>
+        <tbody id="grid-body"></tbody>
+      </table>
+    </div>
+    <div class="legend">
+      <span class="lb">Win probability</span>
+      <span class="sw" id="legend-ramp"></span>
+      <span class="key"><i class="pathk"></i> on the planned path</span>
+      <span class="key"><i class="byek"></i> bye</span>
+      <span class="key">&#9670; pinned by you</span>
+      <span class="key" id="fv-legend">FV &mdash; season survival lost if that team is burned now</span>
+    </div>
+  </section>
+
+  <section id="data-sec">
+    <details class="inputs">
+      <summary>Numbers behind the board &mdash; ratings, ownership, import, export</summary>
+      <div class="dbody">
+        <div>
+          <h3>Import your own numbers</h3>
+          <p>Paste a grid of win probabilities: one row per team, <code>TEAM</code> then one value per week
+            (1&ndash;18). Blank or <code>BYE</code> for a bye. Percent or decimal both read fine. Comma or tab
+            separated. This replaces the sample slate.</p>
+          <textarea id="imp-grid" spellcheck="false" placeholder="LAR, 65, 79, 62, 65, BYE, 90, 75, ...
+BUF, 74, 61, ...
+"></textarea>
+          <div class="btnrow">
+            <button class="act primary" id="btn-imp">Load grid</button>
+            <button class="act" id="btn-reset">Back to sample</button>
+          </div>
+          <div class="msg" id="imp-msg"></div>
+        </div>
+        <div>
+          <h3>Projected ownership &mdash; week <span id="own-wk"></span></h3>
+          <p>The leverage half of the board. Paste <code>TEAM, percent</code> per line from your pool&rsquo;s own
+            numbers, or leave it to the model, which spreads the field over the week&rsquo;s favourites.</p>
+          <textarea id="imp-own" spellcheck="false" placeholder="LAC, 35
+JAX, 23
+DET, 16
+"></textarea>
+          <div class="btnrow">
+            <button class="act primary" id="btn-own">Load ownership</button>
+            <button class="act" id="btn-ownreset">Back to model</button>
+          </div>
+          <div class="msg" id="own-msg"></div>
+        </div>
+        <div>
+          <h3>Sample power ratings</h3>
+          <p>Points better than an average team. Editing one re-prices every game that team plays, through a
+            normal-curve spread model (&sigma;&nbsp;13.2, home field +2). Only drives the sample slate &mdash;
+            an imported grid ignores these.</p>
+          <div class="ratings" id="ratings"></div>
+        </div>
+        <div>
+          <h3>Save and carry</h3>
+          <p>Your pool settings, burned teams and pins are kept with this page, so the board is where you left
+            it next Sunday. Export drops the full plan as CSV.</p>
+          <div class="btnrow">
+            <button class="act" id="btn-export">Export plan (CSV)</button>
+            <button class="act" id="btn-clear">Clear my season</button>
+          </div>
+          <div class="msg" id="save-msg"></div>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <footer>
+    <p><b>How the score is built.</b> <b>Path</b> is the chance of running the table &mdash; this week&rsquo;s
+      win probability times the best assignment of the teams you have left to the weeks you have left, so
+      spending a team here is priced by what it costs there. <b>Lev</b> is your equity multiple this week:
+      your win probability over the field&rsquo;s, where the field is every rival&rsquo;s ownership weighted
+      by their team&rsquo;s chance. Above 1.00 you gain pool share; below it you lose share even when you
+      survive. <b>Score</b> is <span class="num">Path &times; Lev<sup>&lambda;</sup></span>.</p>
+    <p><b>&lambda; is a judgement, not a measurement.</b> It defaults to
+      <span class="num">log&#8321;&#8320;(entries)/4</span>, so a fifty-person pool leans on survival and a
+      twenty-thousand-entry contest leans on differentiation. Drag it. Nothing here is fitted to results.</p>
+    <p><b>The numbers loaded now are a sample season</b> unless you have imported your own: a synthetic
+      round-robin slate with real team names, priced off the sample ratings above. It is shaped like an NFL
+      season &mdash; 17 games, one bye each between weeks 5 and 14 &mdash; so the board behaves correctly, but
+      no game on it is a real fixture and no probability is anyone&rsquo;s published forecast. Bring your own
+      grid before you bet on it.</p>
+  </footer>
+</div>
+<div id="tip" role="tooltip" aria-hidden="true"></div>
+<script>
+const SAMPLE = 
+{"label":"Sample season","note":"Synthetic schedule on a circle-method round robin -- NOT the real 2026 NFL slate. Win probabilities are derived from the sample power ratings below.","weeks":18,"hfa":2.0,"sigma":13.2,"teams":[{"abbr":"BUF","name":"Buffalo Bills","conf":"AFC","div":"East","rating":5.5},{"abbr":"MIA","name":"Miami Dolphins","conf":"AFC","div":"East","rating":-1.0},{"abbr":"NE","name":"New England Patriots","conf":"AFC","div":"East","rating":1.5},{"abbr":"NYJ","name":"New York Jets","conf":"AFC","div":"East","rating":-3.5},{"abbr":"BAL","name":"Baltimore Ravens","conf":"AFC","div":"North","rating":6.5},{"abbr":"CIN","name":"Cincinnati Bengals","conf":"AFC","div":"North","rating":2.5},{"abbr":"CLE","name":"Cleveland Browns","conf":"AFC","div":"North","rating":-4.5},{"abbr":"PIT","name":"Pittsburgh Steelers","conf":"AFC","div":"North","rating":0.5},{"abbr":"HOU","name":"Houston Texans","conf":"AFC","div":"South","rating":2.0},{"abbr":"IND","name":"Indianapolis Colts","conf":"AFC","div":"South","rating":0.0},{"abbr":"JAX","name":"Jacksonville Jaguars","conf":"AFC","div":"South","rating":1.0},{"abbr":"TEN","name":"Tennessee Titans","conf":"AFC","div":"South","rating":-5.5},{"abbr":"DEN","name":"Denver Broncos","conf":"AFC","div":"West","rating":3.5},{"abbr":"KC","name":"Kansas City Chiefs","conf":"AFC","div":"West","rating":5.0},{"abbr":"LV","name":"Las Vegas Raiders","conf":"AFC","div":"West","rating":-2.0},{"abbr":"LAC","name":"Los Angeles Chargers","conf":"AFC","div":"West","rating":3.0},{"abbr":"DAL","name":"Dallas Cowboys","conf":"NFC","div":"East","rating":0.5},{"abbr":"NYG","name":"New York Giants","conf":"NFC","div":"East","rating":-4.0},{"abbr":"PHI","name":"Philadelphia Eagles","conf":"NFC","div":"East","rating":6.0},{"abbr":"WAS","name":"Washington Commanders","conf":"NFC","div":"East","rating":2.0},{"abbr":"CHI","name":"Chicago Bears","conf":"NFC","div":"North","rating":1.0},{"abbr":"DET","name":"Detroit Lions","conf":"NFC","div":"North","rating":5.0},{"abbr":"GB","name":"Green Bay Packers","conf":"NFC","div":"North","rating":4.5},{"abbr":"MIN","name":"Minnesota Vikings","conf":"NFC","div":"North","rating":1.5},{"abbr":"ATL","name":"Atlanta Falcons","conf":"NFC","div":"South","rating":-0.5},{"abbr":"CAR","name":"Carolina Panthers","conf":"NFC","div":"South","rating":-3.0},{"abbr":"NO","name":"New Orleans Saints","conf":"NFC","div":"South","rating":-6.0},{"abbr":"TB","name":"Tampa Bay Buccaneers","conf":"NFC","div":"South","rating":2.0},{"abbr":"ARI","name":"Arizona Cardinals","conf":"NFC","div":"West","rating":-2.5},{"abbr":"LAR","name":"Los Angeles Rams","conf":"NFC","div":"West","rating":4.0},{"abbr":"SEA","name":"Seattle Seahawks","conf":"NFC","div":"West","rating":2.5},{"abbr":"SF","name":"San Francisco 49ers","conf":"NFC","div":"West","rating":4.0}],"sched":[[{"o":1,"h":1,"p":0.7402},{"o":2,"h":0,"p":0.5602},{"o":3,"h":1,"p":0.7977},{"o":4,"h":0,"p":0.4101},null,{"o":6,"h":0,"p":0.7278},{"o":7,"h":1,"p":0.702},{"o":8,"h":0,"p":0.5452},{"o":9,"h":1,"p":0.715},{"o":10,"h":0,"p":0.5751},{"o":11,"h":1,"p":0.8377},{"o":12,"h":0,"p":0.5},{"o":13,"h":1,"p":0.5751},{"o":14,"h":0,"p":0.6615},{"o":15,"h":1,"p":0.6334},{"o":16,"h":0,"p":0.5899},{"o":17,"h":1,"p":0.8082},{"o":18,"h":0,"p":0.4249}],[{"o":0,"h":0,"p":0.2598},{"o":3,"h":0,"p":0.5151},{"o":5,"h":0,"p":0.3385},{"o":7,"h":0,"p":0.3954},{"o":9,"h":0,"p":0.4101},null,{"o":13,"h":0,"p":0.2722},{"o":15,"h":0,"p":0.3247},{"o":17,"h":0,"p":0.5302},{"o":19,"h":0,"p":0.3524},{"o":21,"h":0,"p":0.2722},{"o":23,"h":0,"p":0.3666},{"o":25,"h":0,"p":0.5},{"o":27,"h":0,"p":0.3524},{"o":29,"h":0,"p":0.298},{"o":31,"h":0,"p":0.298},{"o":2,"h":0,"p":0.3666},{"o":4,"h":0,"p":0.2359}],[{"o":31,"h":0,"p":0.3666},{"o":0,"h":1,"p":0.4398},{"o":4,"h":1,"p":0.4101},{"o":6,"h":1,"p":0.7278},{"o":8,"h":1,"p":0.5452},{"o":10,"h":1,"p":0.5751},{"o":12,"h":1,"p":0.5},{"o":14,"h":1,"p":0.6615},{"o":16,"h":1,"p":0.5899},{"o":18,"h":1,"p":0.4249},{"o":20,"h":1,"p":0.5751},null,{"o":24,"h":1,"p":0.6191},{"o":26,"h":1,"p":0.7641},{"o":28,"h":1,"p":0.6753},{"o":30,"h":1,"p":0.5302},{"o":1,"h":1,"p":0.6334},{"o":3,"h":1,"p":0.702}],[{"o":30,"h":1,"p":0.3809},{"o":1,"h":1,"p":0.4849},{"o":0,"h":0,"p":0.2023},{"o":5,"h":0,"p":0.2722},{"o":7,"h":0,"p":0.3247},{"o":9,"h":0,"p":0.3385},{"o":11,"h":0,"p":0.5},{"o":13,"h":0,"p":0.2132},{"o":15,"h":0,"p":0.2598},{"o":17,"h":0,"p":0.4548},{"o":19,"h":0,"p":0.285},{"o":21,"h":0,"p":0.2132},null,{"o":25,"h":0,"p":0.4249},{"o":27,"h":0,"p":0.285},{"o":29,"h":0,"p":0.2359},{"o":31,"h":0,"p":0.2359},{"o":2,"h":0,"p":0.298}],[{"o":29,"h":0,"p":0.5151},{"o":31,"h":0,"p":0.5151},{"o":2,"h":0,"p":0.5899},{"o":0,"h":1,"p":0.5899},{"o":6,"h":1,"p":0.8377},{"o":8,"h":1,"p":0.6888},{"o":10,"h":1,"p":0.715},{"o":12,"h":1,"p":0.6476},{"o":14,"h":1,"p":0.7868},{"o":16,"h":1,"p":0.7278},null,{"o":20,"h":1,"p":0.715},{"o":22,"h":1,"p":0.6191},{"o":24,"h":1,"p":0.7523},{"o":26,"h":1,"p":0.864},{"o":28,"h":1,"p":0.7977},{"o":30,"h":1,"p":0.6753},{"o":1,"h":1,"p":0.7641}],[{"o":28,"h":1,"p":0.702},{"o":30,"h":1,"p":0.5602},{"o":1,"h":1,"p":0.6615},{"o":3,"h":1,"p":0.7278},null,{"o":7,"h":0,"p":0.5},{"o":9,"h":0,"p":0.5151},{"o":11,"h":0,"p":0.6753},{"o":13,"h":0,"p":0.3666},{"o":15,"h":0,"p":0.4249},{"o":17,"h":0,"p":0.6334},{"o":19,"h":0,"p":0.4548},{"o":21,"h":0,"p":0.3666},{"o":23,"h":0,"p":0.4698},{"o":25,"h":0,"p":0.6046},{"o":27,"h":0,"p":0.4548},{"o":29,"h":0,"p":0.3954},{"o":31,"h":0,"p":0.3954}],[{"o":27,"h":0,"p":0.2598},{"o":29,"h":0,"p":0.2132},{"o":31,"h":0,"p":0.2132},{"o":2,"h":0,"p":0.2722},{"o":4,"h":0,"p":0.1623},{"o":0,"h":1,"p":0.2722},{"o":8,"h":1,"p":0.3666},null,{"o":12,"h":1,"p":0.3247},{"o":14,"h":1,"p":0.4849},{"o":16,"h":1,"p":0.4101},{"o":18,"h":1,"p":0.2598},{"o":20,"h":1,"p":0.3954},{"o":22,"h":1,"p":0.298},{"o":24,"h":1,"p":0.4398},{"o":26,"h":1,"p":0.6046},{"o":28,"h":1,"p":0.5},{"o":30,"h":1,"p":0.3524}],[{"o":26,"h":1,"p":0.7402},{"o":28,"h":1,"p":0.6476},{"o":30,"h":1,"p":0.5},{"o":1,"h":1,"p":0.6046},{"o":3,"h":1,"p":0.6753},{"o":5,"h":1,"p":0.5},{"o":0,"h":0,"p":0.298},null,{"o":11,"h":0,"p":0.6191},{"o":13,"h":0,"p":0.3112},{"o":15,"h":0,"p":0.3666},{"o":17,"h":0,"p":0.5751},{"o":19,"h":0,"p":0.3954},{"o":21,"h":0,"p":0.3112},{"o":23,"h":0,"p":0.4101},{"o":25,"h":0,"p":0.5452},{"o":27,"h":0,"p":0.3954},{"o":29,"h":0,"p":0.3385}],[{"o":25,"h":0,"p":0.5899},{"o":27,"h":0,"p":0.4398},{"o":29,"h":0,"p":0.3809},{"o":31,"h":0,"p":0.3809},{"o":2,"h":0,"p":0.4548},{"o":4,"h":0,"p":0.3112},{"o":6,"h":0,"p":0.6334},{"o":0,"h":1,"p":0.4548},{"o":10,"h":1,"p":0.5899},{"o":12,"h":1,"p":0.5151},{"o":14,"h":1,"p":0.6753},{"o":16,"h":1,"p":0.6046},{"o":18,"h":1,"p":0.4398},null,{"o":22,"h":1,"p":0.4849},{"o":24,"h":1,"p":0.6334},{"o":26,"h":1,"p":0.7756},{"o":28,"h":1,"p":0.6888}],[{"o":24,"h":1,"p":0.5751},{"o":26,"h":1,"p":0.7278},{"o":28,"h":1,"p":0.6334},{"o":30,"h":1,"p":0.4849},{"o":1,"h":1,"p":0.5899},{"o":3,"h":1,"p":0.6615},{"o":5,"h":1,"p":0.4849},null,{"o":0,"h":0,"p":0.285},{"o":11,"h":0,"p":0.6046},{"o":13,"h":0,"p":0.298},{"o":15,"h":0,"p":0.3524},{"o":17,"h":0,"p":0.5602},{"o":19,"h":0,"p":0.3809},{"o":21,"h":0,"p":0.298},{"o":23,"h":0,"p":0.3954},{"o":25,"h":0,"p":0.5302},{"o":27,"h":0,"p":0.3809}],[{"o":23,"h":0,"p":0.4249},{"o":25,"h":0,"p":0.5602},{"o":27,"h":0,"p":0.4101},{"o":29,"h":0,"p":0.3524},{"o":31,"h":0,"p":0.3524},{"o":2,"h":0,"p":0.4249},{"o":4,"h":0,"p":0.285},null,{"o":8,"h":0,"p":0.4101},{"o":0,"h":1,"p":0.4249},{"o":12,"h":1,"p":0.4849},{"o":14,"h":1,"p":0.6476},{"o":16,"h":1,"p":0.5751},{"o":18,"h":1,"p":0.4101},{"o":20,"h":1,"p":0.5602},{"o":22,"h":1,"p":0.4548},{"o":24,"h":1,"p":0.6046},{"o":26,"h":1,"p":0.7523}],[{"o":22,"h":1,"p":0.2722},{"o":24,"h":1,"p":0.4101},{"o":26,"h":1,"p":0.5751},{"o":28,"h":1,"p":0.4698},{"o":30,"h":1,"p":0.3247},null,{"o":3,"h":1,"p":0.5},{"o":5,"h":1,"p":0.3247},{"o":7,"h":1,"p":0.3809},{"o":9,"h":1,"p":0.3954},{"o":0,"h":0,"p":0.1623},{"o":13,"h":0,"p":0.1718},{"o":15,"h":0,"p":0.2132},{"o":17,"h":0,"p":0.3954},{"o":19,"h":0,"p":0.2359},{"o":21,"h":0,"p":0.1718},{"o":23,"h":0,"p":0.2477},{"o":25,"h":0,"p":0.3666}],[{"o":21,"h":0,"p":0.3954},{"o":23,"h":0,"p":0.5},{"o":25,"h":0,"p":0.6334},{"o":27,"h":0,"p":0.4849},null,{"o":31,"h":0,"p":0.4249},{"o":2,"h":0,"p":0.5},{"o":4,"h":0,"p":0.3524},{"o":6,"h":0,"p":0.6753},{"o":8,"h":0,"p":0.4849},{"o":10,"h":0,"p":0.5151},{"o":0,"h":1,"p":0.5},{"o":14,"h":1,"p":0.715},{"o":16,"h":1,"p":0.6476},{"o":18,"h":1,"p":0.4849},{"o":20,"h":1,"p":0.6334},{"o":22,"h":1,"p":0.5302},{"o":24,"h":1,"p":0.6753}],[{"o":20,"h":1,"p":0.6753},{"o":22,"h":1,"p":0.5751},{"o":24,"h":1,"p":0.715},{"o":26,"h":1,"p":0.8377},{"o":28,"h":1,"p":0.7641},{"o":30,"h":1,"p":0.6334},{"o":1,"h":1,"p":0.7278},{"o":3,"h":1,"p":0.7868},{"o":5,"h":1,"p":0.6334},{"o":7,"h":1,"p":0.6888},{"o":9,"h":1,"p":0.702},{"o":11,"h":1,"p":0.8282},{"o":0,"h":0,"p":0.4249},null,{"o":17,"h":0,"p":0.702},{"o":19,"h":0,"p":0.5302},{"o":21,"h":0,"p":0.4398},{"o":23,"h":0,"p":0.5452}],[{"o":19,"h":0,"p":0.3247},{"o":21,"h":0,"p":0.2477},{"o":23,"h":0,"p":0.3385},{"o":25,"h":0,"p":0.4698},{"o":27,"h":0,"p":0.3247},{"o":29,"h":0,"p":0.2722},null,{"o":2,"h":0,"p":0.3385},{"o":4,"h":0,"p":0.2132},{"o":6,"h":0,"p":0.5151},{"o":8,"h":0,"p":0.3247},{"o":10,"h":0,"p":0.3524},{"o":12,"h":0,"p":0.285},{"o":0,"h":1,"p":0.3385},{"o":16,"h":1,"p":0.4849},{"o":18,"h":1,"p":0.3247},{"o":20,"h":1,"p":0.4698},{"o":22,"h":1,"p":0.3666}],[{"o":18,"h":1,"p":0.4698},{"o":20,"h":1,"p":0.6191},{"o":22,"h":1,"p":0.5151},{"o":24,"h":1,"p":0.6615},{"o":26,"h":1,"p":0.7977},{"o":28,"h":1,"p":0.715},{"o":30,"h":1,"p":0.5751},{"o":1,"h":1,"p":0.6753},{"o":3,"h":1,"p":0.7402},{"o":5,"h":1,"p":0.5751},{"o":7,"h":1,"p":0.6334},{"o":9,"h":1,"p":0.6476},{"o":11,"h":1,"p":0.7868},null,{"o":0,"h":0,"p":0.3666},{"o":17,"h":0,"p":0.6476},{"o":19,"h":0,"p":0.4698},{"o":21,"h":0,"p":0.3809}],[{"o":17,"h":0,"p":0.5751},{"o":19,"h":0,"p":0.3954},{"o":21,"h":0,"p":0.3112},{"o":23,"h":0,"p":0.4101},{"o":25,"h":0,"p":0.5452},null,{"o":29,"h":0,"p":0.3385},{"o":31,"h":0,"p":0.3385},{"o":2,"h":0,"p":0.4101},{"o":4,"h":0,"p":0.2722},{"o":6,"h":0,"p":0.5899},{"o":8,"h":0,"p":0.3954},{"o":10,"h":0,"p":0.4249},{"o":12,"h":0,"p":0.3524},{"o":14,"h":0,"p":0.5151},{"o":0,"h":1,"p":0.4101},{"o":18,"h":1,"p":0.3954},{"o":20,"h":1,"p":0.5452}],[{"o":16,"h":1,"p":0.4249},{"o":18,"h":1,"p":0.2722},{"o":20,"h":1,"p":0.4101},{"o":22,"h":1,"p":0.3112},null,{"o":26,"h":1,"p":0.6191},{"o":28,"h":1,"p":0.5151},{"o":30,"h":1,"p":0.3666},{"o":1,"h":1,"p":0.4698},{"o":3,"h":1,"p":0.5452},{"o":5,"h":1,"p":0.3666},{"o":7,"h":1,"p":0.4249},{"o":9,"h":1,"p":0.4398},{"o":11,"h":1,"p":0.6046},{"o":13,"h":1,"p":0.298},{"o":15,"h":1,"p":0.3524},{"o":0,"h":0,"p":0.1918},{"o":19,"h":0,"p":0.2722}],[{"o":15,"h":0,"p":0.5302},{"o":17,"h":0,"p":0.7278},{"o":19,"h":0,"p":0.5602},{"o":21,"h":0,"p":0.4698},{"o":23,"h":0,"p":0.5751},{"o":25,"h":0,"p":0.702},{"o":27,"h":0,"p":0.5602},{"o":29,"h":0,"p":0.5},{"o":31,"h":0,"p":0.5},{"o":2,"h":0,"p":0.5751},null,{"o":6,"h":0,"p":0.7402},{"o":8,"h":0,"p":0.5602},{"o":10,"h":0,"p":0.5899},{"o":12,"h":0,"p":0.5151},{"o":14,"h":0,"p":0.6753},{"o":16,"h":0,"p":0.6046},{"o":0,"h":1,"p":0.5751}],[{"o":14,"h":1,"p":0.6753},{"o":16,"h":1,"p":0.6046},{"o":18,"h":1,"p":0.4398},{"o":20,"h":1,"p":0.5899},{"o":22,"h":1,"p":0.4849},{"o":24,"h":1,"p":0.6334},{"o":26,"h":1,"p":0.7756},null,{"o":30,"h":1,"p":0.5452},{"o":1,"h":1,"p":0.6476},{"o":3,"h":1,"p":0.715},{"o":5,"h":1,"p":0.5452},{"o":7,"h":1,"p":0.6046},{"o":9,"h":1,"p":0.6191},{"o":11,"h":1,"p":0.7641},{"o":13,"h":1,"p":0.4698},{"o":15,"h":1,"p":0.5302},{"o":17,"h":1,"p":0.7278}],[{"o":13,"h":0,"p":0.3247},{"o":15,"h":0,"p":0.3809},{"o":17,"h":0,"p":0.5899},{"o":19,"h":0,"p":0.4101},{"o":21,"h":0,"p":0.3247},{"o":23,"h":0,"p":0.4249},{"o":25,"h":0,"p":0.5602},{"o":27,"h":0,"p":0.4101},{"o":29,"h":0,"p":0.3524},{"o":31,"h":0,"p":0.3524},{"o":2,"h":0,"p":0.4249},{"o":4,"h":0,"p":0.285},{"o":6,"h":0,"p":0.6046},null,{"o":10,"h":0,"p":0.4398},{"o":12,"h":0,"p":0.3666},{"o":14,"h":0,"p":0.5302},{"o":16,"h":0,"p":0.4548}],[{"o":12,"h":1,"p":0.6046},{"o":14,"h":1,"p":0.7523},{"o":16,"h":1,"p":0.6888},{"o":18,"h":1,"p":0.5302},{"o":20,"h":1,"p":0.6753},{"o":22,"h":1,"p":0.5751},{"o":24,"h":1,"p":0.715},{"o":26,"h":1,"p":0.8377},{"o":28,"h":1,"p":0.7641},null,{"o":1,"h":1,"p":0.7278},{"o":3,"h":1,"p":0.7868},{"o":5,"h":1,"p":0.6334},{"o":7,"h":1,"p":0.6888},{"o":9,"h":1,"p":0.702},{"o":11,"h":1,"p":0.8282},{"o":13,"h":1,"p":0.5602},{"o":15,"h":1,"p":0.6191}],[{"o":11,"h":0,"p":0.7278},{"o":13,"h":0,"p":0.4249},{"o":15,"h":0,"p":0.4849},{"o":17,"h":0,"p":0.6888},{"o":19,"h":0,"p":0.5151},{"o":21,"h":0,"p":0.4249},{"o":23,"h":0,"p":0.5302},{"o":25,"h":0,"p":0.6615},{"o":27,"h":0,"p":0.5151},{"o":29,"h":0,"p":0.4548},{"o":31,"h":0,"p":0.4548},null,{"o":4,"h":0,"p":0.3809},{"o":6,"h":0,"p":0.702},{"o":8,"h":0,"p":0.5151},{"o":10,"h":0,"p":0.5452},{"o":12,"h":0,"p":0.4698},{"o":14,"h":0,"p":0.6334}],[{"o":10,"h":1,"p":0.5751},{"o":12,"h":1,"p":0.5},{"o":14,"h":1,"p":0.6615},{"o":16,"h":1,"p":0.5899},{"o":18,"h":1,"p":0.4249},{"o":20,"h":1,"p":0.5751},{"o":22,"h":1,"p":0.4698},{"o":24,"h":1,"p":0.6191},{"o":26,"h":1,"p":0.7641},{"o":28,"h":1,"p":0.6753},{"o":30,"h":1,"p":0.5302},{"o":1,"h":1,"p":0.6334},null,{"o":5,"h":1,"p":0.5302},{"o":7,"h":1,"p":0.5899},{"o":9,"h":1,"p":0.6046},{"o":11,"h":1,"p":0.7523},{"o":13,"h":1,"p":0.4548}],[{"o":9,"h":0,"p":0.4249},{"o":11,"h":0,"p":0.5899},{"o":13,"h":0,"p":0.285},{"o":15,"h":0,"p":0.3385},null,{"o":19,"h":0,"p":0.3666},{"o":21,"h":0,"p":0.285},{"o":23,"h":0,"p":0.3809},{"o":25,"h":0,"p":0.5151},{"o":27,"h":0,"p":0.3666},{"o":29,"h":0,"p":0.3112},{"o":31,"h":0,"p":0.3112},{"o":2,"h":0,"p":0.3809},{"o":4,"h":0,"p":0.2477},{"o":6,"h":0,"p":0.5602},{"o":8,"h":0,"p":0.3666},{"o":10,"h":0,"p":0.3954},{"o":12,"h":0,"p":0.3247}],[{"o":8,"h":1,"p":0.4101},{"o":10,"h":1,"p":0.4398},{"o":12,"h":1,"p":0.3666},{"o":14,"h":1,"p":0.5302},{"o":16,"h":1,"p":0.4548},{"o":18,"h":1,"p":0.298},{"o":20,"h":1,"p":0.4398},{"o":22,"h":1,"p":0.3385},{"o":24,"h":1,"p":0.4849},null,{"o":28,"h":1,"p":0.5452},{"o":30,"h":1,"p":0.3954},{"o":1,"h":1,"p":0.5},{"o":3,"h":1,"p":0.5751},{"o":5,"h":1,"p":0.3954},{"o":7,"h":1,"p":0.4548},{"o":9,"h":1,"p":0.4698},{"o":11,"h":1,"p":0.6334}],[{"o":7,"h":0,"p":0.2598},{"o":9,"h":0,"p":0.2722},{"o":11,"h":0,"p":0.4249},{"o":13,"h":0,"p":0.1623},{"o":15,"h":0,"p":0.2023},{"o":17,"h":0,"p":0.3809},{"o":19,"h":0,"p":0.2244},{"o":21,"h":0,"p":0.1623},{"o":23,"h":0,"p":0.2359},null,{"o":27,"h":0,"p":0.2244},{"o":29,"h":0,"p":0.1817},{"o":31,"h":0,"p":0.1817},{"o":2,"h":0,"p":0.2359},{"o":4,"h":0,"p":0.136},{"o":6,"h":0,"p":0.3954},{"o":8,"h":0,"p":0.2244},{"o":10,"h":0,"p":0.2477}],[{"o":6,"h":1,"p":0.7402},{"o":8,"h":1,"p":0.5602},{"o":10,"h":1,"p":0.5899},{"o":12,"h":1,"p":0.5151},{"o":14,"h":1,"p":0.6753},null,{"o":18,"h":1,"p":0.4398},{"o":20,"h":1,"p":0.5899},{"o":22,"h":1,"p":0.4849},{"o":24,"h":1,"p":0.6334},{"o":26,"h":1,"p":0.7756},{"o":28,"h":1,"p":0.6888},{"o":30,"h":1,"p":0.5452},{"o":1,"h":1,"p":0.6476},{"o":3,"h":1,"p":0.715},{"o":5,"h":1,"p":0.5452},{"o":7,"h":1,"p":0.6046},{"o":9,"h":1,"p":0.6191}],[{"o":5,"h":0,"p":0.298},{"o":7,"h":0,"p":0.3524},{"o":9,"h":0,"p":0.3666},{"o":11,"h":0,"p":0.5302},{"o":13,"h":0,"p":0.2359},{"o":15,"h":0,"p":0.285},{"o":17,"h":0,"p":0.4849},null,{"o":21,"h":0,"p":0.2359},{"o":23,"h":0,"p":0.3247},{"o":25,"h":0,"p":0.4548},{"o":27,"h":0,"p":0.3112},{"o":29,"h":0,"p":0.2598},{"o":31,"h":0,"p":0.2598},{"o":2,"h":0,"p":0.3247},{"o":4,"h":0,"p":0.2023},{"o":6,"h":0,"p":0.5},{"o":8,"h":0,"p":0.3112}],[{"o":4,"h":1,"p":0.4849},{"o":6,"h":1,"p":0.7868},{"o":8,"h":1,"p":0.6191},{"o":10,"h":1,"p":0.6476},null,{"o":14,"h":1,"p":0.7278},{"o":16,"h":1,"p":0.6615},{"o":18,"h":1,"p":0.5},{"o":20,"h":1,"p":0.6476},{"o":22,"h":1,"p":0.5452},{"o":24,"h":1,"p":0.6888},{"o":26,"h":1,"p":0.8183},{"o":28,"h":1,"p":0.7402},{"o":30,"h":1,"p":0.6046},{"o":1,"h":1,"p":0.702},{"o":3,"h":1,"p":0.7641},{"o":5,"h":1,"p":0.6046},{"o":7,"h":1,"p":0.6615}],[{"o":3,"h":0,"p":0.6191},{"o":5,"h":0,"p":0.4398},{"o":7,"h":0,"p":0.5},{"o":9,"h":0,"p":0.5151},{"o":11,"h":0,"p":0.6753},{"o":13,"h":0,"p":0.3666},{"o":15,"h":0,"p":0.4249},{"o":17,"h":0,"p":0.6334},{"o":19,"h":0,"p":0.4548},null,{"o":23,"h":0,"p":0.4698},{"o":25,"h":0,"p":0.6046},{"o":27,"h":0,"p":0.4548},{"o":29,"h":0,"p":0.3954},{"o":31,"h":0,"p":0.3954},{"o":2,"h":0,"p":0.4698},{"o":4,"h":0,"p":0.3247},{"o":6,"h":0,"p":0.6476}],[{"o":2,"h":1,"p":0.6334},{"o":4,"h":1,"p":0.4849},{"o":6,"h":1,"p":0.7868},{"o":8,"h":1,"p":0.6191},{"o":10,"h":1,"p":0.6476},{"o":12,"h":1,"p":0.5751},null,{"o":16,"h":1,"p":0.6615},{"o":18,"h":1,"p":0.5},{"o":20,"h":1,"p":0.6476},{"o":22,"h":1,"p":0.5452},{"o":24,"h":1,"p":0.6888},{"o":26,"h":1,"p":0.8183},{"o":28,"h":1,"p":0.7402},{"o":30,"h":1,"p":0.6046},{"o":1,"h":1,"p":0.702},{"o":3,"h":1,"p":0.7641},{"o":5,"h":1,"p":0.6046}]]}
+;
+"use strict";
+/* ============================================================================
+   THE ATTRITION BOARD
+   A survivor pool is an assignment problem wearing a weekly disguise: one team
+   per week, each team at most once, maximise the chance of getting through all
+   of them. That is exactly a rectangular assignment, so it is solved exactly
+   (Hungarian / Jonker-Volgenant on -log p) rather than approximated greedily.
+   Everything else on the page is a question asked of that solver:
+     the plan   = solve the weeks you have left
+     future val = solve them again without a team, and diff
+     this week  = solve them again for each candidate you could take now
+   ========================================================================== */
+
+const W = SAMPLE.weeks;                 // 18
+const NT = SAMPLE.teams.length;         // 32
+const BIG = 1000;                       // cost of a forbidden cell (bye / burned)
+const OWN_K = 13;                       // ownership model: how sharply the field piles onto favourites
+
+/* ---------------------------------------------------------------- state --- */
+const S = {
+  week: 0,                 // 0-indexed week we are picking for
+  pool: 500,
+  entries: 1,
+  lam: null,               // null = derive from pool size
+  doubles: [],             // 0-indexed weeks needing two picks
+  used: [],                // team indices already burned
+  pins: [],                // [{w,t}]
+  grid: null,              // imported win-prob grid, or null for the sample
+  own: null,               // imported ownership {teamIdx: share}, or null for the model
+  ratings: null,           // rating overrides for the sample slate
+};
+const ABBR = SAMPLE.teams.map(t => t.abbr);
+const BY_ABBR = new Map(ABBR.map((a, i) => [a, i]));
+
+const autoLam = n => Math.max(0, Math.min(1.5, Math.log10(Math.max(2, n)) / 4));
+const lambda = () => (S.lam === null ? autoLam(S.pool) : S.lam);
+const isDouble = w => S.doubles.includes(w);
+const slotsAt = w => (isDouble(w) ? 2 : 1);
+
+/* Sample slate is re-priced from ratings; an imported grid is taken as given. */
+function rating(t) {
+  return S.ratings && S.ratings[t] != null ? S.ratings[t] : SAMPLE.teams[t].rating;
+}
+const NORM = x => 0.5 * (1 + erf(x / Math.SQRT2));
+function erf(x) { // Abramowitz-Stegun 7.1.26
+  const s = x < 0 ? -1 : 1; x = Math.abs(x);
+  const t = 1 / (1 + 0.3275911 * x);
+  const y = 1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
+  return s * y;
+}
+const CACHE = { key: "", g: null };
+function grid() {
+  if (S.grid) return S.grid;
+  const key = "r" + JSON.stringify(S.ratings || 0);
+  if (CACHE.key === key) return CACHE.g;
+  const g = SAMPLE.sched.map((row, t) => row.map(c => {
+    if (!c) return null;
+    const spread = rating(t) - rating(c.o) + (c.h ? SAMPLE.hfa : -SAMPLE.hfa);
+    return NORM(spread / SAMPLE.sigma);
+  }));
+  CACHE.key = key; CACHE.g = g;
+  return g;
+}
+const P = (t, w) => grid()[t][w];                        // win prob, or null on a bye
+const opp = (t, w) => (S.grid ? null : SAMPLE.sched[t][w]); // opponent only exists for the sample slate
+
+/* ------------------------------------------------- assignment (Hungarian) --- */
+/* Rectangular O(n^2 m) JV. rows = pick slots, cols = teams, n <= m required.
+   Returns col index per row. */
+function hungarian(cost, n, m) {
+  const u = new Float64Array(n + 1), v = new Float64Array(m + 1);
+  const p = new Int32Array(m + 1), way = new Int32Array(m + 1);
+  for (let i = 1; i <= n; i++) {
+    p[0] = i;
+    let j0 = 0;
+    const minv = new Float64Array(m + 1).fill(Infinity);
+    const used = new Uint8Array(m + 1);
+    do {
+      used[j0] = 1;
+      const i0 = p[j0], row = cost[i0 - 1];
+      let delta = Infinity, j1 = -1;
+      for (let j = 1; j <= m; j++) {
+        if (used[j]) continue;
+        const cur = row[j - 1] - u[i0] - v[j];
+        if (cur < minv[j]) { minv[j] = cur; way[j] = j0; }
+        if (minv[j] < delta) { delta = minv[j]; j1 = j; }
+      }
+      if (j1 < 0) return null;
+      for (let j = 0; j <= m; j++) {
+        if (used[j]) { u[p[j]] += delta; v[j] -= delta; }
+        else minv[j] -= delta;
+      }
+      j0 = j1;
+    } while (p[j0] !== 0);
+    do { const j1 = way[j0]; p[j0] = p[j1]; j0 = j1; } while (j0);
+  }
+  const assign = new Int32Array(n).fill(-1);
+  for (let j = 1; j <= m; j++) if (p[j] > 0) assign[p[j] - 1] = j - 1;
+  return assign;
+}
+
+/* Best path over the weeks from `from` on, given what is already spent.
+   `fixed` are picks you have committed to (this week's candidate, plus pins).
+   Returns rows in week order, the summed log, and any week it could not fill. */
+function plan(from, used, fixed) {
+  const spent = new Set(used);
+  const rows = [], unfilled = [];
+  const cap = {};
+  for (let w = from; w < W; w++) cap[w] = slotsAt(w);
+
+  for (const f of fixed) {
+    if (f.w < from || !cap[f.w] || spent.has(f.t) || P(f.t, f.w) == null) continue;
+    cap[f.w]--; spent.add(f.t);
+    rows.push({ w: f.w, t: f.t, p: P(f.t, f.w), fixed: true });
+  }
+  for (const pin of S.pins) {
+    if (pin.w < from || !cap[pin.w] || spent.has(pin.t) || P(pin.t, pin.w) == null) continue;
+    cap[pin.w]--; spent.add(pin.t);
+    rows.push({ w: pin.w, t: pin.t, p: P(pin.t, pin.w), pinned: true });
+  }
+
+  const slotW = [];
+  for (let w = from; w < W; w++) for (let k = 0; k < cap[w]; k++) slotW.push(w);
+  const avail = [];
+  for (let t = 0; t < NT; t++) if (!spent.has(t)) avail.push(t);
+
+  let n = slotW.length;
+  if (n > avail.length) {                 // more weeks left than teams left
+    for (const w of slotW.slice(avail.length)) unfilled.push(w);
+    n = avail.length;
+  }
+  if (n > 0) {
+    const m = avail.length;
+    const cost = [];
+    for (let i = 0; i < n; i++) {
+      const w = slotW[i], row = new Float64Array(m);
+      for (let j = 0; j < m; j++) {
+        const pr = P(avail[j], w);
+        row[j] = pr == null ? BIG : -Math.log(Math.max(pr, 1e-9));
+      }
+      cost.push(row);
+    }
+    const asg = hungarian(cost, n, m);
+    if (!asg) return { rows: [], log: -Infinity, unfilled: slotW, broken: true };
+    for (let i = 0; i < n; i++) {
+      const t = avail[asg[i]], w = slotW[i], pr = P(t, w);
+      if (pr == null) { unfilled.push(w); continue; }   // nobody available plays that week
+      rows.push({ w, t, p: pr });
+    }
+  }
+  rows.sort((a, b) => a.w - b.w || a.t - b.t);
+  const log = rows.reduce((s, r) => s + Math.log(r.p), 0);
+  return { rows, log, unfilled, broken: false };
+}
+
+/* ------------------------------------------------------------- ownership --- */
+/* Who the rest of the pool takes this week. Imported numbers win; otherwise a
+   softmax over the week's favourites, normalised so the field always picks
+   somebody -- F below has to be a real survival rate, not a partial one. */
+function ownership(w) {
+  const out = new Array(NT).fill(0);
+  const playing = [];
+  for (let t = 0; t < NT; t++) if (P(t, w) != null) playing.push(t);
+  if (S.own) {
+    let given = 0;
+    for (const t of playing) { const v = S.own[t] || 0; out[t] = v; given += v; }
+    if (given <= 0) return ownership_model(playing, w, out);
+    for (const t of playing) out[t] /= given;   // normalise whatever was pasted
+    return out;
+  }
+  return ownership_model(playing, w, out);
+}
+function ownership_model(playing, w, out) {
+  let sum = 0;
+  for (const t of playing) { const r = Math.exp(OWN_K * (P(t, w) - 0.5)); out[t] = r; sum += r; }
+  for (const t of playing) out[t] = sum > 0 ? out[t] / sum : 0;
+  return out;
+}
+
+/* --------------------------------------------------------------- the ask --- */
+function evaluate() {
+  const w = S.week, used = new Set(S.used);
+  const base = plan(w, used, []);                     // best path if you still hold everyone
+  const future = plan(w + 1, used, []);               // rest of season, everyone still in hand
+  const own = ownership(w);
+  const lam = lambda();
+
+  // Field survival: the share of the pool still alive after this week.
+  let F = 0;
+  for (let t = 0; t < NT; t++) if (P(t, w) != null) F += own[t] * P(t, w);
+
+  // Future value, asked of every team including this week's byes: how much of
+  // the rest-of-season path do you surrender by losing them? Solve without them
+  // and diff. A team the optimal path never wants again costs exactly nothing.
+  const futureP = Math.exp(future.log);
+  const fv = new Array(NT).fill(null);
+  for (let t = 0; t < NT; t++) {
+    if (used.has(t)) continue;
+    fv[t] = Math.max(0, futureP - Math.exp(plan(w + 1, new Set([...used, t]), []).log));
+  }
+
+  const cands = [];
+  for (let t = 0; t < NT; t++) {
+    const pw = P(t, w);
+    if (pw == null || used.has(t)) continue;
+    const withT = plan(w, used, [{ w, t }]);          // take them now, play the rest optimally
+    const pathP = Math.exp(withT.log);
+    const lev = F > 0 ? pw / F : 1;
+    cands.push({
+      t, pw, own: own[t], lev, pathP, burn: fv[t],
+      score: pathP * Math.pow(Math.max(lev, 1e-6), lam),
+      rest: withT,
+    });
+  }
+  cands.sort((a, b) => b.score - a.score);
+  return { base, future, futureP, own, F, lam, cands, fv, w };
+}
+
+/* ============================================================ presentation === */
+const $ = s => document.querySelector(s);
+const pct = (x, d = 0) => (x * 100).toFixed(d) + "%";
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const bucket = p => (p < 0.40 ? 0 : p < 0.52 ? 1 : p < 0.62 ? 2 : p < 0.70 ? 3 : p < 0.78 ? 4 : 5);
+const RAMP_EDGE = ["<40", "40-52", "52-62", "62-70", "70-78", "78+"];
+let SORT = { k: "score", dir: -1 };
+let LAST = null;
+
+const oppText = (t, w) => {
+  const o = opp(t, w);
+  return o ? (o.h ? "vs " : "@ ") + ABBR[o.o] : "";
+};
+
+/* ------------------------------------------------------------ pick card --- */
+function renderPick(R) {
+  const el = $("#pickcard");
+  if (!R.cands.length) {
+    el.innerHTML = '<div class="cap">No pick available</div><div class="body">' +
+      '<p class="pickname">Every team you still hold is on a bye this week, or you have burned them all. ' +
+      'Free a team up in the board below.</p></div>';
+    return;
+  }
+  const best = R.cands[0];
+  const byWin = R.cands.reduce((a, b) => (b.pw > a.pw ? b : a));
+  const T = SAMPLE.teams[best.t];
+  const line = [];
+
+  if (best.t !== byWin.t) {
+    line.push("You are paying <b>" + ((byWin.pw - best.pw) * 100).toFixed(1) +
+      " points</b> of win probability against " + esc(ABBR[byWin.t]) + " (" + pct(byWin.pw) +
+      ") to be on a team " + pct(best.own, 1) + " of the pool holds instead of " + pct(byWin.own, 1) + ".");
+  } else {
+    line.push("The safest team this week is also the one the board wants &mdash; " +
+      pct(best.pw) + " to win, and only " + pct(best.own, 1) + " of the pool is on them.");
+  }
+  if (best.lev >= 1.02) {
+    line.push("If they win, your share of the pool grows by <b>" +
+      ((best.lev - 1) * 100).toFixed(0) + "%</b>.");
+  } else if (best.lev <= 0.98) {
+    line.push("They are <b>popular</b>: surviving on them still costs you " +
+      ((1 - best.lev) * 100).toFixed(0) + "% of your pool share.");
+  } else {
+    line.push("Ownership and win probability cancel out here &mdash; you neither gain nor lose ground.");
+  }
+  line.push(best.burn < 0.0005
+    ? "Burning them is <b>free</b>: the optimal path from here never asks for them again."
+    : "Burning them costs <b>" + (best.burn * 100).toFixed(2) + " points</b> of season survival &mdash; " +
+      "the best remaining path is worth that much less without them.");
+
+  let alts = "";
+  if (S.entries > 1) {
+    const picks = R.cands.slice(0, Math.min(S.entries, R.cands.length));
+    alts = '<div class="alts"><span class="k">Your ' + picks.length + " entries</span>" +
+      picks.map((c, i) => '<div class="row"><b>' + esc(ABBR[c.t]) + "</b>" +
+        '<span style="margin-left:0;color:var(--ink3);font-family:var(--mono);font-size:11.5px">' +
+        pct(c.pw) + " &middot; " + pct(c.own, 1) + " owned</span>" +
+        "<span>" + (i === 0 ? "lead" : "entry " + (i + 1)) + "</span></div>").join("") + "</div>";
+  }
+
+  el.innerHTML =
+    '<div class="cap">Week ' + (R.w + 1) + (isDouble(R.w) ? " &mdash; double pick" : "") + " &middot; the call</div>" +
+    '<div class="body">' +
+      '<div class="pickteam"><span class="ab">' + esc(T.abbr) + '</span>' +
+        '<span class="vs">' + esc(oppText(best.t, R.w) || "&mdash;") + "</span></div>" +
+      '<div class="pickname">' + esc(T.name) + "</div>" +
+      '<div class="mini">' +
+        '<div><div class="k">Win</div><div class="v">' + pct(best.pw) + "</div></div>" +
+        '<div><div class="k">Owned</div><div class="v">' + pct(best.own, 1) + "</div></div>" +
+        '<div><div class="k">Leverage</div><div class="v" style="color:' +
+          (best.lev >= 1 ? "var(--good)" : "var(--ink2)") + '">' + best.lev.toFixed(2) + "&times;</div></div>" +
+      "</div>" +
+      '<div class="why">' + line.join(" ") + "</div>" + alts +
+    "</div>";
+}
+
+/* ------------------------------------------------------- candidate table --- */
+const COLS = [
+  { k: "tm", h: "Team", s: false },
+  { k: "opp", h: "Opp", s: false },
+  { k: "pw", h: "Win", s: true },
+  { k: "own", h: "Owned", s: true },
+  { k: "lev", h: "Lev", s: true },
+  { k: "pathP", h: "Path", s: true },
+  { k: "burn", h: "FV burn", s: true },
+  { k: "score", h: "Score", s: true },
+];
+function renderTable(R) {
+  $("#cand-head").innerHTML = COLS.map(c =>
+    '<th' + (c.s ? ' class="sortable" data-k="' + c.k + '" tabindex="0" role="button"' : "") + ">" +
+    esc(c.h) + (c.s && SORT.k === c.k ? ' <span class="car">' + (SORT.dir < 0 ? "▼" : "▲") + "</span>" : "") +
+    "</th>").join("");
+
+  const rows = R.cands.slice().sort((a, b) => (a[SORT.k] - b[SORT.k]) * SORT.dir);
+  const maxOwn = Math.max(0.01, ...rows.map(r => r.own));
+  const best = R.cands[0];
+
+  $("#cand-body").innerHTML = rows.map(c => {
+    const b = bucket(c.pw);
+    const lev = c.lev >= 1.02 ? "lev-up" : c.lev <= 0.98 ? "lev-dn" : "";
+    const bc = c.burn > 0.004 ? "cost-hi" : c.burn > 0.0015 ? "cost-md" : "";
+    return '<tr data-t="' + c.t + '"' + (c.t === best.t ? ' class="top"' : "") + ">" +
+      '<td><span class="tm">' + esc(ABBR[c.t]) + "</span>" +
+        (c.t === best.t ? '<span class="pill">pick</span>' : "") + "</td>" +
+      '<td class="opp">' + esc(oppText(c.t, R.w) || "&mdash;") + "</td>" +
+      '<td style="background:' + "var(--ramp-" + b + ");color:var(--rfg-" + b + ')">' + pct(c.pw) + "</td>" +
+      "<td>" + '<i class="bar" style="width:' + (26 * c.own / maxOwn).toFixed(1) + 'px"></i>' + pct(c.own, 1) + "</td>" +
+      '<td class="' + lev + '">' + c.lev.toFixed(2) + "</td>" +
+      "<td>" + (c.pathP * 100).toFixed(2) + "%</td>" +
+      '<td class="' + bc + '">' + (c.burn < 0.00005 ? "&mdash;" : "−" + (c.burn * 100).toFixed(2)) + "</td>" +
+      '<td style="font-weight:600">' + c.score.toFixed(4) + "</td></tr>";
+  }).join("");
+}
+
+/* ------------------------------------------------------------- the path --- */
+function renderPath(R) {
+  const byWeek = {};
+  for (const r of R.base.rows) (byWeek[r.w] = byWeek[r.w] || []).push(r);
+  const pinned = new Set(S.pins.map(p => p.w + "_" + p.t));
+  let html = "";
+  for (let w = 0; w < W; w++) {
+    if (w < R.w) continue;
+    const list = byWeek[w] || [];
+    const cls = ["wk"]; if (w === R.w) cls.push("now");
+    if (!list.length) {
+      html += '<div class="wk gone"><div class="n">Wk ' + (w + 1) + '</div><div class="t">none</div>' +
+        '<div class="o">no team left</div></div>';
+      continue;
+    }
+    if (list.some(r => pinned.has(r.w + "_" + r.t))) cls.push("pinned");
+    html += '<div class="' + cls.join(" ") + '"><div class="n">Wk ' + (w + 1) + "</div>" +
+      list.map(r => '<div class="t">' + esc(ABBR[r.t]) + "</div>" +
+        '<div class="p">' + pct(r.p) + "</div>" +
+        '<div class="o">' + esc(oppText(r.t, w) || "&nbsp;") + "</div>").join("") + "</div>";
+  }
+  $("#path").innerHTML = html;
+
+  const surv = Math.exp(R.base.log), n = R.base.rows.length;
+  const gaps = R.base.unfilled.length;
+  $("#survline").innerHTML =
+    '<span class="big">' + (surv * 100).toFixed(2) + "%</span>" +
+    "<span>chance this plan runs the table &mdash; " + n + " more pick" + (n === 1 ? "" : "s") +
+    ", weeks " + (R.w + 1) + "&ndash;" + W + ". " +
+    "Nobody survives on feel; that number is what perfect play is worth from here." +
+    (gaps ? ' <b style="color:var(--crit)">' + gaps + " week(s) cannot be filled &mdash; you are out of teams.</b>" : "") +
+    "</span>";
+}
+
+/* ------------------------------------------------------------- the board --- */
+function renderGrid(R) {
+  let head = '<th class="corner">Team</th>';
+  for (let w = 0; w < W; w++) head += "<th" + (w === R.w ? ' style="color:var(--accent);font-weight:600"' : "") + ">" + (w + 1) + "</th>";
+  head += '<th class="fv">FV</th>';
+  $("#grid-head").innerHTML = head;
+
+  const used = new Set(S.used);
+  const onPath = new Set(R.base.rows.map(r => r.w + "_" + r.t));
+  const pinned = new Set(S.pins.map(p => p.w + "_" + p.t));
+  const order = [];
+  for (let t = 0; t < NT; t++) order.push(t);
+  order.sort((a, b) => {
+    const ua = used.has(a) ? 1 : 0, ub = used.has(b) ? 1 : 0;
+    if (ua !== ub) return ua - ub;
+    return (R.fv[b] ?? -1) - (R.fv[a] ?? -1) || ABBR[a].localeCompare(ABBR[b]);
+  });
+
+  $("#grid-body").innerHTML = order.map(t => {
+    const T = SAMPLE.teams[t], isUsed = used.has(t);
+    let row = "<tr" + (isUsed ? ' class="used"' : "") + ' data-t="' + t + '">' +
+      '<td class="tmc"><button class="tmbtn" data-burn="' + t + '" ' +
+      'title="' + esc(T.name) + " &mdash; click to " + (isUsed ? "un-burn" : "burn") + '">' +
+      '<span class="ab">' + esc(T.abbr) + "</span>" +
+      '<span class="dv">' + esc(T.conf[0] + T.div.slice(0, 1)) + "</span></button></td>";
+    for (let w = 0; w < W; w++) {
+      const p = P(t, w);
+      if (p == null) { row += '<td class="cell bye"><button disabled>bye</button></td>'; continue; }
+      const b = bucket(p), cl = ["cell"];
+      if (onPath.has(w + "_" + t)) cl.push("onpath");
+      if (pinned.has(w + "_" + t)) cl.push("pinned");
+      if (w < R.w) cl.push("past");
+      row += '<td class="' + cl.join(" ") + '" style="background:var(--ramp-' + b + ')">' +
+        '<button data-pin="' + t + "_" + w + '" style="color:var(--rfg-' + b + ')">' +
+        Math.round(p * 100) + "</button></td>";
+    }
+    const f = R.fv[t];
+    row += '<td class="fv">' + (isUsed ? "burned" : f == null || f < 0.00005 ? "&mdash;" : "−" + (f * 100).toFixed(2)) + "</td>";
+    return row + "</tr>";
+  }).join("");
+
+  $("#legend-ramp").innerHTML = RAMP_EDGE.map((e, i) =>
+    '<i style="background:var(--ramp-' + i + ')" title="' + e + '%"></i>').join("");
+}
+
+/* ------------------------------------------------------------- controls --- */
+function renderControls(R) {
+  const wsel = $("#f-week");
+  if (wsel.options.length !== W) {
+    wsel.innerHTML = Array.from({ length: W }, (_, i) => '<option value="' + i + '">Week ' + (i + 1) + "</option>").join("");
+  }
+  wsel.value = String(S.week);
+  $("#f-pool").value = S.pool;
+  $("#f-entries").value = S.entries;
+  $("#f-lev").value = lambda();
+  $("#f-doubles").value = S.doubles.map(w => w + 1).join(", ");
+  $("#f-used").value = S.used.map(t => ABBR[t]).join(" ");
+  $("#weeks-left").textContent = (W - S.week) + " week" + (W - S.week === 1 ? "" : "s") + " to go";
+  $("#pool-foot").textContent = S.pool >= 5000 ? "differentiate or bust" : S.pool >= 400 ? "leverage matters" : "survival first";
+  $("#lev-foot").textContent = lambda().toFixed(2) + (S.lam === null ? " · auto from pool" : " · manual");
+  $("#used-foot").textContent = S.used.length ? S.used.length + " burned" : "click a team name in the board";
+  $("#own-wk").textContent = String(S.week + 1);
+  $("#call-h").textContent = "Week " + (S.week + 1) + (isDouble(S.week) ? " — two picks" : "") + " call";
+  $("#stamptext").innerHTML = S.grid
+    ? "Your imported grid &middot; " + ABBR.length + " teams"
+    : "Sample season &mdash; not the real slate";
+  $("#datastamp").style.borderColor = S.grid ? "var(--good)" : "var(--accent-line)";
+  $("#datastamp").style.color = S.grid ? "var(--good)" : "var(--accent-ink)";
+  $("#datastamp").style.background = S.grid ? "transparent" : "var(--accent-soft)";
+}
+
+function renderRatings() {
+  if ($("#ratings").children.length) return;
+  $("#ratings").innerHTML = SAMPLE.teams.map((t, i) =>
+    '<label><b>' + esc(t.abbr) + '</b><input type="number" step="0.5" data-rate="' + i + '" value="' + rating(i) + '"></label>').join("");
+}
+
+function render() {
+  try {
+    const R = LAST = evaluate();
+    $("#fatal").innerHTML = "";
+    renderControls(R); renderPick(R); renderTable(R); renderPath(R); renderGrid(R); renderRatings();
+  } catch (e) {
+    $("#fatal").innerHTML = '<div class="warnbox">The board could not be built: ' + esc(e.message) +
+      ' &mdash; try "Back to sample" in the panel at the foot of the page.</div>';
+  }
+}
+
+/* ================================================================ events === */
+const KEYS = ["week", "pool", "entries", "lam", "doubles", "used", "pins", "grid", "own", "ratings"];
+const SKEY = "attrition.board.v1";
+let DB = null, saveTimer = null;
+
+function snapshot() { const o = { ts: Date.now() }; for (const k of KEYS) o[k] = S[k]; return o; }
+function adopt(o) { if (!o || typeof o !== "object") return; for (const k of KEYS) if (o[k] !== undefined) S[k] = o[k]; S.ts = o.ts || 0; }
+function persist() {
+  try { localStorage.setItem(SKEY, JSON.stringify(snapshot())); } catch (e) { /* private mode: in-memory only */ }
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    if (!DB) return;
+    DB.doc("state/season").set(snapshot()).then(
+      () => msg("#save-msg", "Saved — this board will be here next Sunday.", "ok"),
+      () => msg("#save-msg", "Kept on this device only — could not reach shared storage.", ""));
+  }, 700);
+}
+function msg(sel, text, cls) { const el = $(sel); if (!el) return; el.className = "msg " + (cls || ""); el.textContent = text; }
+function apply(fn) { fn(); persist(); render(); }
+
+/* setup bar */
+$("#f-week").addEventListener("change", e => apply(() => { S.week = +e.target.value; }));
+$("#f-pool").addEventListener("input", e => {
+  const v = parseInt(e.target.value, 10);
+  if (!isFinite(v) || v < 2) return;
+  apply(() => { S.pool = Math.min(500000, v); });
+});
+$("#f-entries").addEventListener("input", e => {
+  const v = parseInt(e.target.value, 10);
+  if (!isFinite(v) || v < 1) return;
+  apply(() => { S.entries = Math.min(20, v); });
+});
+$("#f-lev").addEventListener("input", e => apply(() => { S.lam = +e.target.value; }));
+$("#f-doubles").addEventListener("change", e => apply(() => {
+  S.doubles = String(e.target.value).split(/[^0-9]+/).map(x => parseInt(x, 10) - 1)
+    .filter(x => x >= 0 && x < W).filter((v, i, a) => a.indexOf(v) === i).sort((a, b) => a - b);
+}));
+$("#f-used").addEventListener("change", e => apply(() => {
+  S.used = String(e.target.value).toUpperCase().split(/[^A-Z0-9]+/).filter(Boolean)
+    .map(a => BY_ABBR.has(a) ? BY_ABBR.get(a) : -1).filter(t => t >= 0)
+    .filter((v, i, a) => a.indexOf(v) === i);
+  S.pins = S.pins.filter(p => !S.used.includes(p.t));
+}));
+
+/* board: burn a team, pin a team to a week */
+$("#grid-body").addEventListener("click", e => {
+  const burn = e.target.closest("[data-burn]");
+  if (burn) {
+    const t = +burn.dataset.burn;
+    return apply(() => {
+      const i = S.used.indexOf(t);
+      if (i >= 0) S.used.splice(i, 1);
+      else { S.used.push(t); S.pins = S.pins.filter(p => p.t !== t); }
+    });
+  }
+  const pin = e.target.closest("[data-pin]");
+  if (!pin) return;
+  const [t, w] = pin.dataset.pin.split("_").map(Number);
+  if (w < S.week || S.used.includes(t) || P(t, w) == null) return;
+  apply(() => {
+    const i = S.pins.findIndex(p => p.t === t && p.w === w);
+    if (i >= 0) S.pins.splice(i, 1);
+    else { S.pins = S.pins.filter(p => p.t !== t); S.pins.push({ t, w }); }
+  });
+});
+
+/* candidate table: sort, and click a row to burn that team and step a week on */
+$("#cand-head").addEventListener("click", e => {
+  const th = e.target.closest("[data-k]"); if (!th) return;
+  const k = th.dataset.k;
+  SORT = { k, dir: SORT.k === k ? -SORT.dir : -1 };
+  render();
+});
+$("#cand-head").addEventListener("keydown", e => {
+  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.target.click(); }
+});
+$("#cand-body").addEventListener("click", e => {
+  const tr = e.target.closest("[data-t]"); if (!tr) return;
+  const t = +tr.dataset.t;
+  const name = SAMPLE.teams[t].name;
+  if (!confirm("Lock in " + name + " for week " + (S.week + 1) + "?\n\nThey get burned and the board moves to week " + (S.week + 2) + ".")) return;
+  apply(() => {
+    if (!S.used.includes(t)) S.used.push(t);
+    S.pins = S.pins.filter(p => p.t !== t);
+    if (!isDouble(S.week) || S.used.length % 2 === 0) S.week = Math.min(W - 1, S.week + 1);
+  });
+});
+
+/* ratings */
+$("#ratings").addEventListener("change", e => {
+  const el = e.target.closest("[data-rate]"); if (!el) return;
+  const v = parseFloat(el.value); if (!isFinite(v)) return;
+  apply(() => { S.ratings = S.ratings || {}; S.ratings[+el.dataset.rate] = Math.max(-25, Math.min(25, v)); });
+});
+
+/* ------------------------------------------------------------- import --- */
+function readNum(s) {
+  s = String(s).trim().replace(/%$/, "");
+  if (!s || /^(bye|-{1,2}|n\/?a)$/i.test(s)) return null;
+  const v = parseFloat(s);
+  if (!isFinite(v)) return null;
+  return v > 1.0000001 ? v / 100 : v;    // 74 and 0.74 both mean the same thing
+}
+$("#btn-imp").addEventListener("click", () => {
+  const txt = $("#imp-grid").value.trim();
+  if (!txt) return msg("#imp-msg", "Nothing pasted.", "err");
+  const g = SAMPLE.teams.map(() => new Array(W).fill(null));
+  let hit = 0, unknown = [];
+  for (const raw of txt.split(/\r?\n/)) {
+    const line = raw.trim(); if (!line) continue;
+    const parts = line.split(/[,\t;|]/).map(x => x.trim());
+    const key = parts[0].toUpperCase();
+    if (!BY_ABBR.has(key)) { if (parts.length > 2) unknown.push(parts[0]); continue; }
+    const t = BY_ABBR.get(key);
+    for (let w = 0; w < W && w + 1 < parts.length; w++) {
+      const v = readNum(parts[w + 1]);
+      g[t][w] = v == null ? null : Math.max(0.001, Math.min(0.999, v));
+    }
+    hit++;
+  }
+  if (hit < 2) return msg("#imp-msg", "Read " + hit + " team rows. Each line needs a team abbreviation first — " +
+    ABBR.slice(0, 6).join(", ") + " and so on.", "err");
+  apply(() => { S.grid = g; S.pins = []; });
+  msg("#imp-msg", "Loaded " + hit + " teams." + (unknown.length ? " Skipped unrecognised: " + unknown.slice(0, 6).join(", ") + "." : "") +
+    " The sample slate is no longer in play.", "ok");
+});
+$("#btn-reset").addEventListener("click", () => {
+  apply(() => { S.grid = null; S.pins = []; });
+  msg("#imp-msg", "Back on the sample season.", "");
+});
+$("#btn-own").addEventListener("click", () => {
+  const txt = $("#imp-own").value.trim();
+  if (!txt) return msg("#own-msg", "Nothing pasted.", "err");
+  const o = {}; let hit = 0;
+  for (const raw of txt.split(/\r?\n/)) {
+    const parts = raw.trim().split(/[,\t;|\s]+/).filter(Boolean);
+    if (parts.length < 2) continue;
+    const key = parts[0].toUpperCase(); if (!BY_ABBR.has(key)) continue;
+    const v = readNum(parts[1]); if (v == null) continue;
+    o[BY_ABBR.get(key)] = v; hit++;
+  }
+  if (!hit) return msg("#own-msg", "No lines read. Each needs a team then a percentage, like “LAC, 35”.", "err");
+  apply(() => { S.own = o; });
+  msg("#own-msg", "Loaded ownership for " + hit + " teams, normalised across the week's field.", "ok");
+});
+$("#btn-ownreset").addEventListener("click", () => {
+  apply(() => { S.own = null; });
+  msg("#own-msg", "Back on the modelled field.", "");
+});
+
+/* ------------------------------------------------------------- export --- */
+$("#btn-export").addEventListener("click", async () => {
+  const R = LAST || evaluate();
+  const rows = [["week", "team", "opponent", "win_prob", "on_plan"]];
+  for (const r of R.base.rows) rows.push([r.w + 1, ABBR[r.t], oppText(r.t, r.w), r.p.toFixed(4), "yes"]);
+  rows.push([]);
+  rows.push(["week " + (R.w + 1) + " candidates"]);
+  rows.push(["team", "opponent", "win_prob", "ownership", "leverage", "path_survival", "fv_burn", "score"]);
+  for (const c of R.cands) rows.push([ABBR[c.t], oppText(c.t, R.w), c.pw.toFixed(4), c.own.toFixed(4),
+    c.lev.toFixed(3), c.pathP.toFixed(5), c.burn.toFixed(5), c.score.toFixed(5)]);
+  const csv = rows.map(r => r.map(x => /[",]/.test(String(x)) ? '"' + String(x).replace(/"/g, '""') + '"' : x).join(",")).join("\n");
+  const name = "survivor-plan-week" + (R.w + 1) + ".csv";
+  const dl = await claudeUse("downloads");
+  if (!dl) return msg("#save-msg", "Downloads are not available in this view.", "err");
+  try { await dl.save({ filename: name, data: csv }); msg("#save-msg", "Exported " + name, "ok"); }
+  catch (err) { msg("#save-msg", err && err.code === "declined" ? "Export cancelled." : "Export failed: " + ((err && err.message) || "unknown"), "err"); }
+});
+$("#btn-clear").addEventListener("click", () => {
+  if (!confirm("Clear burned teams, pins, and pool settings? Imported numbers stay loaded.")) return;
+  apply(() => { S.week = 0; S.used = []; S.pins = []; S.lam = null; S.doubles = []; });
+  msg("#save-msg", "Season cleared.", "");
+});
+
+/* ------------------------------------------------------------ tooltip --- */
+const tip = $("#tip");
+function showTip(html, x, y) {
+  tip.innerHTML = html; tip.classList.add("on"); tip.setAttribute("aria-hidden", "false");
+  const r = tip.getBoundingClientRect();
+  tip.style.left = Math.max(8, Math.min(innerWidth - r.width - 8, x + 14)) + "px";
+  tip.style.top = Math.max(8, Math.min(innerHeight - r.height - 8, y + 16)) + "px";
+}
+const hideTip = () => { tip.classList.remove("on"); tip.setAttribute("aria-hidden", "true"); };
+document.addEventListener("mousemove", e => {
+  const cell = e.target.closest && e.target.closest("[data-pin]");
+  if (!cell) return hideTip();
+  const [t, w] = cell.dataset.pin.split("_").map(Number);
+  const p = P(t, w); if (p == null) return hideTip();
+  const R = LAST; const f = R ? R.fv[t] : null;
+  showTip('<div class="t1">' + esc(SAMPLE.teams[t].name) + "</div>" +
+    '<div class="r"><span>Week ' + (w + 1) + "</span><b>" + esc(oppText(t, w) || "—") + "</b></div>" +
+    '<div class="r"><span>Win probability</span><b>' + pct(p, 1) + "</b></div>" +
+    (f != null ? '<div class="r"><span>Future value</span><b>' + (f * 100).toFixed(2) + " pp</b></div>" : "") +
+    '<div class="hint">' + (w < S.week ? "already gone by" : "click to pin to this week") + "</div>", e.clientX, e.clientY);
+});
+
+/* --------------------------------------------------------- boot & sync --- */
+async function claudeUse(name) {
+  try { return (typeof claude !== "undefined" && claude.use) ? await claude.use(name) : null; }
+  catch (e) { return null; }
+}
+try { adopt(JSON.parse(localStorage.getItem(SKEY) || "null")); } catch (e) { /* ignore */ }
+render();
+
+(async () => {
+  DB = await claudeUse("db");
+  if (!DB) return;
+  try {
+    const snap = await DB.doc("state/season").get();
+    if (!snap || !snap.exists) return;
+    const v = snap.data();
+    if (v && (!S.ts || (v.ts || 0) > S.ts)) { adopt(v); render(); msg("#save-msg", "Picked up where you left off.", "ok"); }
+  } catch (e) { /* offline: the local copy already rendered */ }
+})();
+</script>
+</body>
+</html>

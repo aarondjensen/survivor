@@ -1,0 +1,7 @@
+__pycache__/
+node_modules/
+package*.json
+season.json
+artifact.html
+*.png
+preview.html
