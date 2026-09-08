@@ -52,20 +52,57 @@ disagrees with itself, and you cannot tell which half is wrong.
 probability of running the entire table if you take this team now and play
 optimally afterwards — not this week's win probability with a note beside it.
 
-**`Lev`'s DENOMINATOR IS THE WHOLE POINT.** It is the FIELD's survival rate this
-week — every rival's ownership weighted by their team's win probability — so above
-1.00 you gain pool share and below it you **lose share even when you survive**.
-That is the trade the pillar is about: the 80% team a third of the pool holds is a
-losing pick against the 74% team nobody has, and no amount of win probability on
-its own can say so. Ownership and win probability are two different questions and
-this is the only place they meet.
+**`Lev` MUST BE `E[1/x]` AND NEVER `1/E[x]`, AND IT TOOK TWO WRONG CUTS TO GET
+THERE.** It is the expected value of `1 / (surviving share of the pool)` given your
+team wins — how much of what is left you own — taken over the field's WHOLE
+distribution.
 
-**`λ` IS A JUDGEMENT, NOT A MEASUREMENT, AND THE PAGE SAYS SO IN THOSE WORDS.** It
-defaults to `log₁₀(entries)/4` — 0.42 at fifty entries, 1.08 at twenty thousand —
-because survival dominates a small pool and differentiation dominates a huge one.
-It is a slider, and it is labelled. **Nothing here is fitted to outcomes**: there
-is no survivor result log to fit it on, and a constant chosen because it looked
-right is worse than a knob that admits what it is.
+- **Cut one scored `p_you / F`, where `F` is the field's survival rate.** `F` is
+  **the same number for every candidate**, so dividing by it cannot reorder
+  anything: ownership was rendered in its own column and had **zero** effect on the
+  ranking. Measured — piling 60% of the pool onto the top pick left the board
+  identical, and `lev / win` came back as the same constant, `1.445579`, on every
+  row. Worse, since `Lev ∝ p`, `Lev^λ ∝ p^λ`, so the pool-size slider **ran
+  backwards**: a bigger pool chased win probability harder.
+- **Cut two conditioned the denominator on your team winning**, `p_t / (F + pop_t(1
+  − p_t))`. That ranks correctly and is still wrong by a factor of **25**. With 99%
+  of the room on a 75% chalk against 1% on a 73% dog it says 0.97 for the dog; the
+  truth is **25.75**. Averaging the survivor count before inverting erases the only
+  branch that pays — the chalk loses, and a sliver of the pool is left holding your
+  ticket. Jensen's inequality, and the gap IS the prize.
+
+So the whole distribution is computed. The surviving share is a sum of independent
+per-team indicators, which is a convolution — exact, and **deterministic**, where
+sampling would have made the board irreproducible run to run.
+
+**IT REPRODUCES THE ARTICLE'S OWN WORKED EXAMPLE WITHOUT BEING TOLD IT.** On
+Gehman's Week 1 numbers (LAC 80%/35%, JAX 73%/23%, DET 74%/16%, LV 65%/7%) the
+exact calculation picks **Detroit** — his leverage case, the one where you pay six
+points of win probability to get off the chalk. Both earlier cuts picked LAC.
+
+**AND THE CHALK IS NOT AUTOMATICALLY WRONG.** On those same numbers LAC is second,
+not last: an 80-against-74 edge is large and 35% ownership does not overcome it in
+one week. Gehman agrees — *"if our only goal was surviving this week, Los Angeles
+would be the easy answer"* — and his stated reason for fading them is FUTURE VALUE,
+not leverage. Measured as ownership climbs on a fixed 74% team: rank 1 at 5% owned,
+4 at 20%, 6 at 35%, 17 at 60%, last at 90%. `test_leverage.js` pins all of it,
+including a test that fails if ownership stops reordering the board.
+
+**WHAT THIS STILL DOES NOT MODEL:** survivor is multi-week and winner-take-all, so
+equity is CONVEX in pool share and a differentiated pick buys variance worth real
+win probability. This prices one week. λ above 1.00 is the knob for leaning further
+than one-week EV justifies, and it is labelled as exactly that.
+
+**`λ = 1.00` IS NOT A WEIGHTING, IT IS THE OBJECTIVE.** There `Path × Lev`
+multiplies out to rest-of-season survival times this week's expected equity, which
+is the thing you are maximising rather than a weighting of it. It used to default
+to `log₁₀(entries)/4` — a bridge invented for a leverage term that could not see
+ownership at all. The term can now, and **pool size enters `Lev` directly**,
+through the one-entry floor `1/N` that stops a team nobody is projected on from
+dividing by zero. Above 1.00 leans harder into differentiation than one week of EV
+justifies, which is defensible for the convexity reason above and is labelled as a
+lean. **Nothing here is fitted to outcomes**: there is no survivor result log to
+fit it on.
 
 ## REAL DATA: `pull_season.py` WRITES `season.js`, AND THE PAGE PREFERS IT
 

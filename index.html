@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <title>Survivor</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%230E1413'/><text x='32' y='47' font-family='Archivo,Helvetica,Arial,sans-serif' font-size='48' font-weight='800' text-anchor='middle' fill='%23E0A94C'>S</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
@@ -280,7 +281,7 @@ footer b{color:var(--ink2);font-weight:600}
       </div>
       <div class="fld lev">
         <label for="f-lev">Leverage weight &lambda;</label>
-        <input id="f-lev" type="range" min="0" max="1.5" step="0.05" value="0.85">
+        <input id="f-lev" type="range" min="0" max="2" step="0.05" value="1">
         <span class="foot" id="lev-foot"></span>
       </div>
       <div class="fld">
@@ -401,13 +402,16 @@ DET, 16
   <footer>
     <p><b>How the score is built.</b> <b>Path</b> is the chance of running the table &mdash; this week&rsquo;s
       win probability times the best assignment of the teams you have left to the weeks you have left, so
-      spending a team here is priced by what it costs there. <b>Lev</b> is your equity multiple this week:
-      your win probability over the field&rsquo;s, where the field is every rival&rsquo;s ownership weighted
-      by their team&rsquo;s chance. Above 1.00 you gain pool share; below it you lose share even when you
-      survive. <b>Score</b> is <span class="num">Path &times; Lev<sup>&lambda;</sup></span>.</p>
-    <p><b>&lambda; is a judgement, not a measurement.</b> It defaults to
-      <span class="num">log&#8321;&#8320;(entries)/4</span>, so a fifty-person pool leans on survival and a
-      twenty-thousand-entry contest leans on differentiation. Drag it. Nothing here is fitted to results.</p>
+      spending a team here is priced by what it costs there. <b>Lev</b> is how much of the pool you own if you
+      survive: the expected value of <span class="num">1 / (surviving share)</span> given your team wins,
+      as a multiple of your fair share. It is taken over the field&rsquo;s whole distribution and not its
+      average, because the branch that pays is the one where the popular pick loses and a sliver of the
+      pool is left holding your ticket &mdash; an average survivor count erases exactly that branch. <b>Score</b> is <span class="num">Path &times; Lev<sup>&lambda;</sup></span>.</p>
+    <p><b>&lambda; = 1.00 is not a weighting, it is the objective.</b> There the score multiplies out to
+      rest-of-season survival times this week&rsquo;s expected equity, which is the thing you are trying to
+      maximise. Drag it above 1 to lean harder into differentiation than one week of EV justifies &mdash;
+      defensible, because survivor is multi-week and winner-take-all and this prices one week. Nothing
+      here is fitted to results.</p>
     <p id="provenance"><b>The numbers loaded now are a sample season</b> unless you have imported your own: a synthetic
       round-robin slate with real team names, priced off the sample ratings above. It is shaped like an NFL
       season &mdash; 17 games, one bye each between weeks 5 and 14 &mdash; so the board behaves correctly, but
@@ -463,8 +467,15 @@ const S = {
 const ABBR = SAMPLE.teams.map(t => t.abbr);
 const BY_ABBR = new Map(ABBR.map((a, i) => [a, i]));
 
-const autoLam = n => Math.max(0, Math.min(1.5, Math.log10(Math.max(2, n)) / 4));
-const lambda = () => (S.lam === null ? autoLam(S.pool) : S.lam);
+/* At lam = 1 the score IS expected equity: pathP x LEV multiplies out to
+   (rest-of-season survival) x (this week's win probability x share won), which
+   is the objective rather than a weighting of it. It used to default to
+   log10(entries)/4, a bridge for a leverage term that could not see ownership
+   at all; the term can now, and pool size enters it directly through the
+   one-entry floor. Above 1 leans harder into differentiation than one-week EV
+   justifies -- defensible, because survivor is multi-week and winner-take-all
+   and this model prices one week. */
+const lambda = () => (S.lam === null ? 1.0 : S.lam);
 const isDouble = w => S.doubles.includes(w);
 const slotsAt = w => (isDouble(w) ? 2 : 1);
 
@@ -608,6 +619,54 @@ function ownership_model(playing, w, out) {
   return out;
 }
 
+/* ------------------------------------------------------------- leverage --- */
+/* E[ 1 / surviving share of the pool | your team wins ], as a multiple of your
+   fair share. 1.00 means surviving gains you nothing; above it you own more of
+   what is left.
+
+   IT MUST BE E[1/x] AND NOT 1/E[x], AND THAT IS THE WHOLE POINT. The first cut
+   scored p_you / (field survival), which is the same denominator for every
+   candidate -- so ownership was displayed and could not reorder anything, and
+   raising the pool-size weight just chased win probability harder. The second
+   cut conditioned the denominator on your team winning, which ranks correctly
+   and is still wrong by a factor of 25: averaging the survivor count before
+   inverting washes out the branch that matters, the one where the chalk loses
+   and a tenth of the pool is left holding your ticket. Measured, 99% on a 75%
+   chalk against 1% on a 73% dog: 1/E[x] says 0.97, E[1/x] says 25.75.
+
+   So the whole distribution is computed. The surviving share is a sum of
+   independent per-team indicators, which is a convolution -- exact, and
+   deterministic, which sampling would not be. */
+function leverageWeek(w, own) {
+  const play = [];
+  for (let t = 0; t < NT; t++) if (P(t, w) != null) play.push(t);
+  const B = 1000;                                  // share resolution, 0.1%
+  const floorShare = 1 / Math.max(2, S.pool);      // you are always at least one entry
+  const out = new Array(NT).fill(1);
+  for (const t of play) {
+    const dist = new Float64Array(B + 1); dist[0] = 1;
+    let hi = 0;
+    for (const j of play) {                        // the field EXCEPT your own backers
+      if (j === t) continue;
+      const b = Math.round((own[j] || 0) * B);
+      if (b <= 0) continue;                        // nobody on them: they add no survivors
+      const pj = P(j, w), next = new Float64Array(B + 1);
+      for (let k = 0; k <= hi; k++) {
+        const v = dist[k]; if (!v) continue;
+        next[k] += v * (1 - pj);
+        next[Math.min(B, k + b)] += v * pj;
+      }
+      hi = Math.min(B, hi + b);
+      dist.set(next);
+    }
+    const mine = Math.max(own[t] || 0, floorShare);
+    let e = 0;
+    for (let k = 0; k <= hi; k++) if (dist[k]) e += dist[k] / (mine + k / B);
+    out[t] = e;
+  }
+  return out;
+}
+
 /* --------------------------------------------------------------- the ask --- */
 function evaluate() {
   const w = S.week, used = new Set(S.used);
@@ -615,8 +674,10 @@ function evaluate() {
   const future = plan(w + 1, used, []);               // rest of season, everyone still in hand
   const own = ownership(w);
   const lam = lambda();
+  const lev = leverageWeek(w, own);
 
-  // Field survival: the share of the pool still alive after this week.
+  // Field survival: the share of the pool still alive after this week. Reported
+  // only -- it is the same number for every candidate, so it can never rank them.
   let F = 0;
   for (let t = 0; t < NT; t++) if (P(t, w) != null) F += own[t] * P(t, w);
 
@@ -636,10 +697,9 @@ function evaluate() {
     if (pw == null || used.has(t)) continue;
     const withT = plan(w, used, [{ w, t }]);          // take them now, play the rest optimally
     const pathP = Math.exp(withT.log);
-    const lev = F > 0 ? pw / F : 1;
     cands.push({
-      t, pw, own: own[t], lev, pathP, burn: fv[t],
-      score: pathP * Math.pow(Math.max(lev, 1e-6), lam),
+      t, pw, own: own[t], lev: lev[t], pathP, burn: fv[t],
+      score: pathP * Math.pow(Math.max(lev[t], 1e-6), lam),
       rest: withT,
     });
   }
@@ -683,15 +743,13 @@ function renderPick(R) {
     line.push("The safest team this week is also the one the board wants &mdash; " +
       pct(best.pw) + " to win, and only " + pct(best.own, 1) + " of the pool is on them.");
   }
-  if (best.lev >= 1.02) {
-    line.push("If they win, your share of the pool grows by <b>" +
-      ((best.lev - 1) * 100).toFixed(0) + "%</b>.");
-  } else if (best.lev <= 0.98) {
-    line.push("They are <b>popular</b>: surviving on them still costs you " +
-      ((1 - best.lev) * 100).toFixed(0) + "% of your pool share.");
-  } else {
-    line.push("Ownership and win probability cancel out here &mdash; you neither gain nor lose ground.");
-  }
+  const chalk = R.cands.reduce((a, b) => (b.own > a.own ? b : a));
+  line.push("Survive on them and you hold <b>" + best.lev.toFixed(2) +
+    "&times;</b> your fair share of whoever is left" +
+    (chalk.t !== best.t
+      ? ", against " + chalk.lev.toFixed(2) + "&times; on " + esc(ABBR[chalk.t]) +
+        ", who " + pct(chalk.own, 0) + " of the pool is holding."
+      : " &mdash; and they are already the most popular pick in the room."));
   line.push(best.burn < 0.0005
     ? "Burning them is <b>free</b>: the optimal path from here never asks for them again."
     : "Burning them costs <b>" + (best.burn * 100).toFixed(2) + " points</b> of season survival &mdash; " +
@@ -742,11 +800,15 @@ function renderTable(R) {
 
   const rows = R.cands.slice().sort((a, b) => (a[SORT.k] - b[SORT.k]) * SORT.dir);
   const maxOwn = Math.max(0.01, ...rows.map(r => r.own));
+  // Colour Lev against the field it came from. E[1/x] sits above 1 for nearly
+  // everyone, so a fixed 1.00 threshold paints the whole column green.
+  const levs = rows.map(r => r.lev).sort((a, b) => a - b);
+  const midLev = levs.length ? levs[levs.length >> 1] : 1;
   const best = R.cands[0];
 
   $("#cand-body").innerHTML = rows.map(c => {
     const b = bucket(c.pw);
-    const lev = c.lev >= 1.02 ? "lev-up" : c.lev <= 0.98 ? "lev-dn" : "";
+    const lev = c.lev > midLev * 1.02 ? "lev-up" : c.lev < midLev * 0.98 ? "lev-dn" : "";
     const bc = c.burn > 0.004 ? "cost-hi" : c.burn > 0.0015 ? "cost-md" : "";
     return '<tr data-t="' + c.t + '"' + (c.t === best.t ? ' class="top"' : "") + ">" +
       '<td><span class="tm">' + esc(ABBR[c.t]) + "</span>" +
@@ -854,7 +916,7 @@ function renderControls(R) {
   $("#f-used").value = S.used.map(t => ABBR[t]).join(" ");
   $("#weeks-left").textContent = (W - S.week) + " week" + (W - S.week === 1 ? "" : "s") + " to go";
   $("#pool-foot").textContent = S.pool >= 5000 ? "differentiate or bust" : S.pool >= 400 ? "leverage matters" : "survival first";
-  $("#lev-foot").textContent = lambda().toFixed(2) + (S.lam === null ? " · auto from pool" : " · manual");
+  $("#lev-foot").textContent = lambda().toFixed(2) + (Math.abs(lambda() - 1) < 1e-9 ? " · expected equity" : lambda() > 1 ? " · leans contrarian" : " · leans safe");
   $("#used-foot").textContent = S.used.length ? S.used.length + " burned" : "click a team name in the board";
   $("#own-wk").textContent = String(S.week + 1);
   $("#call-h").textContent = "Week " + (S.week + 1) + (isDouble(S.week) ? " — two picks" : "") + " call";

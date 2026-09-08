@@ -19,8 +19,10 @@ and then prices this week's decision three ways:
   rest optimally. Spending a team here is priced by what it costs in November.
 - **FV burn** — how much of the season path you surrender by using them up. A team
   the plan never wants again costs nothing; spend them.
-- **Lev** — your win probability over the *field's*. Above 1.00 you gain pool share;
-  below it you lose share even when you survive.
+- **Lev** — how much of the pool you own if you survive: `E[1 / surviving share]`
+  given your team wins, over the field's whole distribution. This is where
+  projected ownership bites — a team half the room is holding carries the room
+  with it when it wins, so surviving on it gains you very little.
 
 `Score = Path × Lev^λ`, where `λ` scales with pool size — a fifty-person pool leans
 on survival, a twenty-thousand-entry contest leans on differentiation. It is a
@@ -71,6 +73,7 @@ pool's own projected ownership in the panel at the foot of the page.
 | `build_artifact.py` | emits the shell-less fragment for publishing as an Artifact |
 | `make_sample_season.py` | regenerates the synthetic sample slate |
 | `test_fit.py` | pins the measured claims about the ratings fit |
+| `test_leverage.js` | pins the leverage model (`node test_leverage.js`) |
 | `CLAUDE.md` | why it is built this way, and the traps already hit |
 
 Method follows the three pillars in Rick Gehman's *The Lone Survivor*
