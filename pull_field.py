@@ -199,6 +199,82 @@ def discover(url: str, env_path=None):
     print("\nNext: python pull_field.py --dump \"<the one that looks like entries or picks>\"")
 
 
+NAMEISH = re.compile(r"name|display|first|last|nick|email|avatar|logo", re.I)
+
+
+def detail(node, depth=0, path="$", maxdepth=4, redact=True):
+    """Targeted structure, deeper than shape() and with values for scalars.
+
+    NAMES ARE REDACTED. Nothing in the parser keys on a human name -- entries
+    have ids -- so there is no reason for the pool's roster of real people to be
+    pasted into a chat to get a parser written."""
+    pad = "  " * depth
+    if isinstance(node, dict):
+        print(f"{pad}{path}: {{{', '.join(sorted(node))}}}")
+        if depth >= maxdepth: return
+        for k in sorted(node):
+            detail(node[k], depth + 1, k, maxdepth, redact)
+    elif isinstance(node, list):
+        print(f"{pad}{path}: list[{len(node)}]")
+        if node and depth < maxdepth:
+            detail(node[0], depth + 1, path + "[0]", maxdepth, redact)
+    else:
+        v = "<redacted>" if (redact and NAMEISH.search(path) and isinstance(node, str) and node) else repr(node)
+        print(f"{pad}{path} = {v[:90]}")
+
+
+def inspect(d: pathlib.Path):
+    """Read what --probe saved and print the parts the parser has to key on."""
+    load = lambda n: json.loads((d / f"{n}.json").read_text(encoding="utf-8"))
+    try:
+        grp, mem, prop, ch = load("group"), load("members"), load("propositions"), load("challenge")
+    except FileNotFoundError as e:
+        raise SystemExit(f"{e.filename} not there. Run --probe --save {d} first.")
+
+    print("=" * 72, "\nGROUP -- how big is the field, and how many are alive")
+    for k in ("size", "largeGroup", "locked", "forecastEligibleTeamsRemaining"):
+        if k in grp: print(f"  {k} = {grp[k]!r}")
+    print(f"  entries returned = {len(grp.get('entries', []))}")
+    detail(grp.get("entryStats"), 1, "entryStats", maxdepth=3)
+    print("\n  one entry, in full:")
+    if grp.get("entries"): detail(grp["entries"][0], 1, "entries[0]", maxdepth=4)
+
+    print("=" * 72, "\nMEMBERS -- where picks actually live")
+    e = (mem.get("entries") or [{}])[0]
+    print(f"  entry keys: {sorted(e)}")
+    detail(e.get("picks"), 1, "picks", maxdepth=4)
+    for k in ("id", "challengeGroups", "groupIds", "scoreByGroup"):
+        if k in e: detail(e[k], 1, k, maxdepth=3)
+
+    print("=" * 72, "\nPROPOSITIONS -- the pickable teams, and any pick counts")
+    print(f"  {len(prop)} propositions (expect one per week)")
+    p0 = prop[0] if prop else {}
+    print(f"  keys: {sorted(p0)}")
+    for k in sorted(p0):
+        v = p0[k]
+        if isinstance(v, (list, dict)) and v:
+            detail(v, 1, k, maxdepth=3)
+    print("\n  scanning every proposition for a pick-count / percentage field:")
+    hits = set()
+    def scan(n, path=""):
+        if isinstance(n, dict):
+            for k, v in n.items():
+                if re.search(r"percent|pct|count|popular|selected|picked|tally", k, re.I) \
+                   and isinstance(v, (int, float, str)):
+                    hits.add(f"{path}.{k} = {v!r}"[:110])
+                scan(v, f"{path}.{k}")
+        elif isinstance(n, list):
+            for x in n[:3]: scan(x, path + "[]")
+    for p in prop[:3]: scan(p, "prop")
+    for h in sorted(hits)[:25]: print("    " + h)
+    if not hits: print("    none found -- ownership will have to come from the group picks view")
+
+    print("=" * 72, "\nCHALLENGE -- period and lock state")
+    detail(ch.get("currentScoringPeriod"), 1, "currentScoringPeriod", maxdepth=2)
+    for k in ("gameId", "gameType", "scoringPeriods", "teams"):
+        if k in ch: detail(ch[k], 1, k, maxdepth=2)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -213,11 +289,16 @@ def main():
                     help="fetch every OBSERVED endpoint and describe each response")
     ap.add_argument("--save", metavar="DIR",
                     help="with --probe, also write each raw response there")
+    ap.add_argument("--inspect", metavar="DIR",
+                    help="read what --probe --save wrote and print the parts a parser keys on")
     ap.add_argument("--dump", metavar="URL", help="fetch one endpoint and describe the response")
     a = ap.parse_args()
 
     if a.discover:
         return discover(a.url, a.env)
+
+    if a.inspect:
+        return inspect(pathlib.Path(a.inspect))
 
     if a.probe:
         gid = group_id(a.url)
