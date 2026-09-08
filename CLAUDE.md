@@ -98,6 +98,39 @@ A 403 is a REFUSAL, not a missing page, and the first cut of this file printed
 "a 404 usually means that week is not published yet" *on a 403* — a confident
 wrong diagnosis in the one place you read when something breaks.
 
+**RIDGE SHRINKS, AND AT 1.0 IT WAS EATING 14% OF THE LADDER.** The fit only ever
+determines DIFFERENCES between ratings, so something has to pin the additive
+constant; ridge does that and regularises thin data at the same time. It also
+compresses, and the first cut compressed hard. Measured against known ratings
+over 40 seeded seasons at the density a real September pull has — **112 lined
+games**, which is what nflverse returned on 2026-09-08:
+
+| RIDGE | mean err | max err | slope | fitted range |
+|---|---|---|---|---|
+| 0.05 | 0.17 | 0.49 | 0.991 | 15.5 |
+| **0.1** | **0.18** | **0.51** | **0.982** | **15.4** |
+| 0.5 | 0.32 | 0.87 | 0.921 | 14.5 |
+| **1.0 (was)** | **0.49** | **1.39** | **0.859** | **13.6** |
+| 2.0 | 0.76 | 2.23 | 0.761 | 12.1 |
+
+*(slope of fitted against true; 1.00 is no shrinkage. True range 15.6 pts.)*
+
+**That compression lands on the 160 games the tool is actually reasoning about**
+— every unlined week is priced off these ratings — pulling all of them toward a
+coin flip and flattening the future-value comparisons the optimizer runs on.
+Lower ridge won at **every** density tested, including the thin end where
+regularisation was supposed to be earning its keep: at 16 lined games it buys
+~0.1 pts of error and costs a third of the scale.
+
+**AND THE THIN-DATA WARNING WAS SILENT AT EXACTLY THE DENSITY THAT FAILS.** It
+fired below **16** lined games — but 16 IS one week, and one week cannot fit 32
+ratings: every team has appeared, and a team played once cannot be told apart
+from its single opponent. Slope by lines available: **16 → 0.504**, 32 → 0.868,
+48 → 0.935, 64 → 0.960, flat after. `MIN_LINES` is **48** — three weeks — and
+the message says what a bad fit does rather than that one is possible.
+`test_fit.py` pins all of it, including a test that FAILS if ridge 1.0 ever
+stops being visibly worse, so the claim cannot quietly go stale.
+
 **`--lookahead` IS THE ANSWER TO "REAL NUMBERS FOR WEEK 15".** A book has not
 hung a line on week 15 in September, but 4for4 and others publish **lookahead
 spreads** for every team in every week. Paste that table and every fixture gets a

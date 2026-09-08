@@ -41,7 +41,28 @@ import argparse, csv, datetime, io, json, math, pathlib, re, sys, urllib.request
 NFLVERSE = "https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv"
 ESPN = ("https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
         "?dates={year}&seasontype=2&week={week}")
-WEEKS, HFA, SIGMA, RIDGE = 18, 2.0, 13.2, 1.0
+WEEKS, HFA, SIGMA = 18, 2.0, 13.2
+
+# Ridge pins the otherwise-free additive constant (the data only ever determines
+# DIFFERENCES between ratings) and keeps the fit sane on thin data. It also
+# SHRINKS, and 1.0 shrank hard: measured against known ratings over 40 seeded
+# seasons at the density a real September pull has (112 lined games), it
+# compressed the ladder 14% -- fitted range 13.6 pts against a true 15.6, mean
+# error 0.49. Every unlined week is priced off these ratings, so that
+# compression lands on the 160 games the tool is actually reasoning about,
+# pulling them all toward a coin flip. 0.1 measures at 0.982 of true scale and
+# 0.18 mean error, and is still large enough to condition the solve. Lower ridge
+# won at EVERY density tested, including the thin end where regularisation was
+# supposed to be earning its keep -- it buys ~0.1 pts of error there and costs
+# a third of the scale. See test_fit.py.
+RIDGE = 0.1
+
+# One week of lines cannot fit 32 ratings: every team has appeared, but a team
+# played once cannot be told apart from its single opponent. Measured slope of
+# fitted against true, same 40 seasons -- 16 lined: 0.504, 32: 0.868, 48: 0.935,
+# 64: 0.960, flat after. So the bar is three weeks of lines, not the one week
+# the first cut used, which stayed silent at exactly the density that fails.
+MIN_LINES = 48
 
 BROWSER_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -453,9 +474,12 @@ def main():
     else:
         ratings, fitted = fit_ratings(rows)
         print(f"\nfitted ratings to {fitted} posted spreads (range {min(ratings):+.1f} to {max(ratings):+.1f})")
-        if fitted < 16:
-            print("  ! Fewer than one week of lines. Ratings are barely determined and every\n"
-                  "  ! unlined week is near a coin flip. Re-run later, or pass --ratings.", file=sys.stderr)
+        if fitted < MIN_LINES:
+            print(f"  ! Only {fitted} posted spreads -- under {MIN_LINES} (three weeks), the fit\n"
+                  f"  ! recovers roughly half the true spread between teams, so every unlined\n"
+                  f"  ! week is pulled toward a coin flip and future value is flattened with it.\n"
+                  f"  ! Re-run once more games are lined, or pass --ratings / --lookahead.",
+                  file=sys.stderr)
 
     tiers = {"moneyline": sum(1 for r in rows if r["tier"] == "moneyline"),
              "spread":    sum(1 for r in rows if r["tier"] in ("spread", "lookahead")),

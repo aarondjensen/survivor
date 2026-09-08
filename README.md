@@ -70,6 +70,7 @@ pool's own projected ownership in the panel at the foot of the page.
 | `pull_season.py` | pulls the real schedule + market spreads, writes `season.js` |
 | `build_artifact.py` | emits the shell-less fragment for publishing as an Artifact |
 | `make_sample_season.py` | regenerates the synthetic sample slate |
+| `test_fit.py` | pins the measured claims about the ratings fit |
 | `CLAUDE.md` | why it is built this way, and the traps already hit |
 
 Method follows the three pillars in Rick Gehman's *The Lone Survivor*
