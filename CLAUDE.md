@@ -333,6 +333,21 @@ this pool, so the reveal is expected once a week locks; whether it arrives on
 this endpoint or another is a MEASUREMENT, and `--inspect A --against B` is how
 it gets made rather than remembered.
 
+**AND "NOT BURNED" IS A CLAIM ABOUT THE CURRENT STATE, SO IT IS CHECKED.** The
+build before this one wrote live selections into `used` and PERSISTED them, and
+a pull only ever adds — so that burn sits in localStorage where nothing will
+clear it, and the sentence "it is not burned" would be a lie on any board that
+had been opened once. That is precisely the state in which the board cannot
+offer you your own selection and quietly recommends the runner-up. `mineNote`
+tests `S.used` and, when it finds one, says so in a warn box with a button that
+puts it back in the pool.
+
+**AND THE NOTE HAD TO MOVE TO SEE IT.** It rendered as a bare block ABOVE
+`adopt()`, so it described a board with nothing burned and nothing loaded — fine
+for a sentence about the pool, wrong for any sentence about what is on it. As a
+block it found nothing every time and said so confidently. `renderFieldNote()`
+is called after the restore.
+
 **A SELECTION IS NOT A DECISION UNTIL IT LOCKS, AND CONFLATING THE TWO MUTED THE
 ONE QUESTION THE BOARD EXISTS TO ANSWER.** ESPN saves your pick the moment you
 make it and lets you change it until kickoff, so `mine` holds a live selection as
@@ -497,6 +512,29 @@ everything else on a record is carried by the switch.
 **AND ITS OWNERSHIP IS `null`, DELIBERATELY.** Splash publishes none, so the tab
 falls through to ESPN's measured counters as a proxy — stated on the page, never
 silently.
+
+## THE LINES MOVE EVERY WEEK AND NOTHING HERE PULLS THEMSELVES
+
+`pull_season.py` re-fits ratings from whatever is posted the moment you run it,
+so re-running IS the update — and it is a thing you have to do. Two consequences
+worth being exact about:
+
+- **News reaches this tool only through the market.** There is no injury feed.
+  A torn ACL changes a number here when the books move the line and not before,
+  which is usually fast and is never instant.
+- **Only some games are lined.** The first real pull fitted **112 of 272**;
+  every other week is priced from ratings fitted to those, which is a model
+  output and the page says so. That share grows as the season comes into range.
+
+**A STALE SLATE RENDERED IDENTICALLY TO A FRESH ONE.** `season.js` has carried
+`pulled_at` since it was written and the masthead printed the date — a fact you
+had to notice and do arithmetic on. It now prints the AGE and, past
+`STALE_DAYS`, a banner you have to read past. **`STALE_DAYS = 3` is a judgement,
+not a measurement**, and the reasoning is the only thing that makes it defensible:
+NFL injury reports land Wednesday through Friday, so a slate older than that has
+missed a news cycle and is quoting the market's old opinion of a hurt team. It is
+one constant in one place and it is a DISPLAY threshold — it moves no number on
+the board.
 
 ## POOL SIZE ENTERS LEVERAGE THROUGH ONE DOOR, AND IT IS NARROWER THAN IT LOOKS
 

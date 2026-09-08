@@ -268,6 +268,7 @@ footer b{color:var(--ink2);font-weight:600}
 
 <div class="wrap">
   <div id="fatal"></div>
+  <div id="stalebox" class="warnbox" hidden></div>
 
   <section id="setup-sec">
     <div class="shead">
@@ -470,6 +471,20 @@ const SAMPLE = (typeof window !== "undefined" && window.SEASON) || EMBEDDED_SAMP
 const IS_REAL = SAMPLE !== EMBEDDED_SAMPLE;
 const FIELD = (typeof window !== "undefined" && window.FIELD) || null;
 const SPLASH = (typeof window !== "undefined" && window.SPLASH) || null;
+
+/* HOW OLD IS THE MARKET WE ARE PRICING OFF? Lines move on every injury report,
+   and a slate pulled a fortnight ago renders identically to one pulled this
+   morning -- the failure this whole tool is written against. STALE_DAYS is a
+   judgement and not a measurement: NFL injury reports land Wednesday through
+   Friday, so a slate older than three days has missed at least one news cycle
+   and the number it prints for a hurt team is the market's old opinion. */
+const STALE_DAYS = 3;
+function slateAge() {
+  if (!IS_REAL || !SAMPLE.pulled_at) return null;
+  const t = Date.parse(SAMPLE.pulled_at);
+  if (!isFinite(t)) return null;
+  return Math.floor((Date.now() - t) / 86400000);
+}
 
 const W = SAMPLE.weeks;                 // 18
 const NT = SAMPLE.teams.length;         // 32
@@ -1049,14 +1064,26 @@ function renderControls(R) {
         " entries game-wide &mdash; not your 25"
     : "a model, not data &mdash; nobody has picked this week yet";
   $("#call-h").textContent = "Week " + (S.week + 1) + (isDouble(S.week) ? " — two picks" : "") + " call";
-  const real = S.grid || IS_REAL;
+  const age = slateAge(), stale = age != null && age >= STALE_DAYS;
+  const real = (S.grid || IS_REAL) && !stale;
   $("#stamptext").innerHTML = S.grid ? "Your imported grid &middot; " + ABBR.length + " teams"
-    : IS_REAL ? esc(SAMPLE.label || "Real slate") + (SAMPLE.pulled_at ? " &middot; pulled " + esc(String(SAMPLE.pulled_at).slice(0, 10)) : "")
+    : IS_REAL ? esc(SAMPLE.label || "Real slate") + (SAMPLE.pulled_at
+        ? " &middot; pulled " + esc(String(SAMPLE.pulled_at).slice(0, 10))
+          + (age == null ? "" : age === 0 ? " (today)" : " (" + age + "d ago)") : "")
     : "Sample season &mdash; not the real slate";
   $("#datastamp").title = S.grid ? "Numbers you pasted in" : IS_REAL ? (SAMPLE.note || "") : "Where the numbers on this board came from";
   $("#datastamp").style.borderColor = real ? "var(--good)" : "var(--accent-line)";
   $("#datastamp").style.color = real ? "var(--good)" : "var(--accent-ink)";
   $("#datastamp").style.background = real ? "transparent" : "var(--accent-soft)";
+  /* A STAMP IS A THING YOU STOP SEEING. This is the one input that decays on a
+     clock nobody watches, so it also gets a line you have to read past. */
+  const sb = $("#stalebox");
+  sb.hidden = !stale;
+  if (stale)
+    sb.innerHTML = "<b>These lines are " + age + " days old.</b> Win probabilities come from " +
+      "posted spreads and moneylines, and those move on every injury report \u2014 a team that " +
+      "has lost a starter since this pull is still priced as though it has not. " +
+      "Re-run <code>python pull_season.py</code>.";
 }
 
 function renderRatings() {
@@ -1180,6 +1207,22 @@ $("#f-used").addEventListener("change", e => apply(() => {
     .filter((v, i, a) => a.indexOf(v) === i);
   S.pins = S.pins.filter(p => !S.used.includes(p.t));
 }));
+
+/* Delegated, because the button is written into the field note by innerHTML and
+   only exists when the stuck state does. */
+document.addEventListener("click", e => {
+  if (!e.target.closest("#unburn")) return;
+  const live = (FIELD && FIELD.mine || []).filter(m => !settled(m));
+  apply(() => {
+    for (const m of live) {
+      const t = BY_ABBR.has(m.team) ? BY_ABBR.get(m.team) : -1;
+      const i = S.used.indexOf(t);
+      if (i >= 0) S.used.splice(i, 1);
+    }
+  });
+  const n = $("#fieldnote");
+  if (n && FIELD) n.innerHTML = n.innerHTML.split('<span class="warnbox"')[0];
+});
 
 /* board: burn a team, pin a team to a week */
 $("#grid-body").addEventListener("click", e => {
@@ -1339,7 +1382,13 @@ async function claudeUse(name) {
   try { return (typeof claude !== "undefined" && claude.use) ? await claude.use(name) : null; }
   catch (e) { return null; }
 }
-if (FIELD) {
+/* A FUNCTION, CALLED AFTER THE SAVED BOARD IS RESTORED. As a bare block here it
+   ran BEFORE `adopt()`, so it described a board with nothing burned and nothing
+   loaded -- which is fine for a sentence about the pool and wrong for any
+   sentence about what is currently on it. The stuck-burn check below is exactly
+   such a sentence, and it silently found nothing every time. */
+function renderFieldNote() {
+  if (!FIELD) return;
   const n = $("#fieldnote"); n.hidden = false;
   n.innerHTML = "<b>Pool state is real.</b> " + esc(FIELD.group.surviving) + " of " +
     esc(FIELD.group.size) + " entries alive, read from your ESPN pool" +
@@ -1362,13 +1411,29 @@ function mineNote() {
       list(done) + " \u2014 " + (done.length > 1 ? "are" : "is") +
       " burned, and the board plans from the next week on. A pull only ever adds: a team " +
       "you burned by hand stays burned, and the week never moves backwards.";
-  if (live.length)
+  if (live.length) {
     out += " <b>ESPN already has " + list(live) + " selected for you, and " +
       (live.length > 1 ? "those weeks are" : "that week is") + " not locked yet.</b> " +
-      (live.length > 1 ? "They are" : "It is") + " deliberately NOT burned \u2014 that is your " +
-      "current selection, not a decision the board made, and burning it would take it out of " +
-      "the candidates so the board could not recommend it even if it were the best pick on " +
-      "the slate. Compare it against the call above and change whichever you like on ESPN.";
+      (live.length > 1 ? "They are" : "It is") + " not burned here \u2014 that is your " +
+      "current selection, not a decision the board made. Compare it against the call above " +
+      "and change whichever you like on ESPN.";
+    /* AND THEN CHECK, RATHER THAN ASSERTING IT. "Not burned" is a claim about
+       the CURRENT state, and an earlier build of this page wrote live selections
+       into `used` and persisted them -- so the sentence above can be false on a
+       board that has been open before, with the burn sitting in localStorage
+       where no pull will ever remove it (a pull only ever adds, by design).
+       That is the exact state in which the board cannot offer you your own
+       selection and quietly recommends the runner-up instead. */
+    const stuck = live.filter(m => BY_ABBR.has(m.team) && S.used.includes(BY_ABBR.get(m.team)));
+    if (stuck.length)
+      out += ' <span class="warnbox" style="display:block;margin-top:8px">' +
+        "<b>But " + stuck.map(m => esc(m.team)).join(", ") + " is currently marked BURNED on " +
+        "this board, so it is not in the candidate list and cannot be recommended.</b> An " +
+        "earlier version of this page burned live selections; the burn is saved here, and a " +
+        "pull only ever adds, so it will not clear itself. " +
+        '<button class="act" id="unburn" style="margin-top:6px">Put ' +
+        stuck.map(m => esc(m.team)).join(", ") + " back in the pool</button></span>";
+  }
   return out;
 }
 if (IS_REAL) {
@@ -1432,6 +1497,7 @@ if (FIELD && Array.isArray(FIELD.mine)) {
 }
 ensurePools();          /* after the FIELD defaults, or pool one is born at 500 */
 stash();
+renderFieldNote();      /* after the restore, or it describes an empty board */
 render();
 
 (async () => {
