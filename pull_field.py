@@ -271,8 +271,40 @@ def discover(url: str, env_path=None, skip_creds=False, hold=True):
     # cookies, the same reason draftkit keeps its browser profiles out of git.
     profile = HERE / ".browser" / site
     profile.mkdir(parents=True, exist_ok=True)
+    # OPEN THE WINDOW THE WAY A PERSON'S BROWSER OPENS. Splash's login came back
+    # "Wrong or expired reCaptcha", which is a challenge scoring the WINDOW, not
+    # the account. Three things Playwright does by default cause it, and this is
+    # the same fix draftkit's platforms/browser.py carries for Cloudflare
+    # Turnstile:
+    #   1. --enable-automation sets navigator.webdriver = true, the single
+    #      most-checked bot signal, and it is on unless you turn it off.
+    #   2. The BUNDLED Chromium instead of the Chrome you actually have --
+    #      different build, different fingerprint, no reason for a person to run it.
+    #   3. A spoofed user-agent, which is worse than none: a claim the rest of the
+    #      fingerprint contradicts. Nothing is overridden; the browser reports itself.
+    # NONE OF THIS DEFEATS A SECURITY CONTROL -- your account, your password, typed
+    # by you into the site's own page. It corrects a false positive about the
+    # window, and it is NOT a guarantee: if it still refuses, --har is the route
+    # that involves no automation at all.
+    CHANNELS = ("chrome", "msedge", None)
+    ARGS = ["--disable-blink-features=AutomationControlled"]
+    IGNORE = ["--enable-automation"]
     with sync_playwright() as pw:
-        ctx = pw.chromium.launch_persistent_context(str(profile), headless=False)
+        ctx = which = None
+        for channel in CHANNELS:
+            try:
+                ctx = pw.chromium.launch_persistent_context(
+                    str(profile), headless=False, channel=channel,
+                    args=ARGS, ignore_default_args=IGNORE)
+                which = channel or "playwright's bundled chromium"
+                break
+            except Exception as e:
+                last = e
+        if ctx is None:
+            raise SystemExit(f"could not open any browser: {last}")
+        print(f"  driving {which}"
+              + ("  <- most likely to be challenged; install Chrome to avoid it"
+                 if which and "bundled" in which else ""))
         if cookies:
             ctx.add_cookies([{"name": k, "value": v, "domain": "." + COOKIE_SCOPE,
                               "path": "/"} for k, v in cookies.items()])
@@ -481,6 +513,52 @@ def inspect(d: pathlib.Path):
         if k in ch: detail(ch[k], 1, k, maxdepth=2)
 
 
+
+def from_har(path: pathlib.Path, site: str | None = None):
+    """Read a HAR exported from your OWN browser -- F12 > Network > Save all as HAR.
+
+    THE ROUTE THAT CANNOT BE CHALLENGED. There is no automated browser here at
+    all: you are already signed in, in the browser you always use, and this only
+    reads the recording afterwards. When a captcha refuses the driven window,
+    this is the fallback that always works.
+
+    A HAR CONTAINS YOUR SESSION COOKIES AND AUTH HEADERS. It is read locally and
+    only SHAPES are printed -- never paste the file itself anywhere, and delete it
+    when done. .gitignore carries *.har for the same reason."""
+    try:
+        har = json.loads(path.read_text(encoding="utf-8-sig", errors="replace"))
+    except FileNotFoundError:
+        raise SystemExit(f"No such file: {path}")
+    entries = (har.get("log") or {}).get("entries") or []
+    if not entries:
+        raise SystemExit(f"{path} has no log.entries -- is it a HAR?")
+    site = site or ""
+    shown = 0
+    print(f"{len(entries)} recorded request(s); api-shaped ones below\n")
+    for e in entries:
+        url = (e.get("request") or {}).get("url", "")
+        if site and not is_api(url, site):
+            continue
+        res = e.get("response") or {}
+        body = ((res.get("content") or {}).get("text")) or ""
+        status = res.get("status")
+        print("=" * 72)
+        print(f"{(e.get('request') or {}).get('method','?')} {url[:150]}")
+        print(f"  HTTP {status}  ({len(body)} bytes)")
+        if not body:
+            print("  (no body captured -- tick 'preserve log' and reload before saving)")
+            continue
+        try:
+            detail(json.loads(body), 1, "$", maxdepth=3)
+        except json.JSONDecodeError:
+            print("  not JSON: " + body[:150].replace("\n", " "))
+        shown += 1
+    if not shown:
+        print("Nothing api-shaped matched. Re-run without --site to see everything.")
+    print("=" * 72)
+    print("Names are redacted. Paste the shapes -- never the HAR: it holds your cookies.")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -489,6 +567,9 @@ def main():
     ap.add_argument("--env", metavar="PATH",
                     help=r"read SWID/ESPN_S2 from here instead of a local .env "
                          r"(e.g. C:\dev\draftkit\.env) -- better than a second copy")
+    ap.add_argument("--har", metavar="FILE",
+                    help="read a HAR your own browser exported -- no automation, so "
+                         "nothing for a captcha to refuse")
     ap.add_argument("--no-hold", action="store_true",
                     help="close the browser after a few seconds instead of waiting for Enter")
     ap.add_argument("--platform", choices=["espn", "splash"], default="espn",
@@ -512,6 +593,9 @@ def main():
 
     if a.discover:
         return discover(a.url, a.env, skip_creds=a.no_creds, hold=not a.no_hold)
+
+    if a.har:
+        return from_har(pathlib.Path(a.har), registrable(a.url) if a.url else None)
 
     if a.inspect:
         return inspect(pathlib.Path(a.inspect))

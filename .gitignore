@@ -11,3 +11,4 @@ preview.html
 field.js
 probe/
 .browser/
+*.har
