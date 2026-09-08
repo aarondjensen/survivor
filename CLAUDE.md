@@ -498,6 +498,40 @@ everything else on a record is carried by the switch.
 falls through to ESPN's measured counters as a proxy — stated on the page, never
 silently.
 
+## POOL SIZE ENTERS LEVERAGE THROUGH ONE DOOR, AND IT IS NARROWER THAN IT LOOKS
+
+The intuition — *a big pool rewards differentiation harder* — is right about
+survivor and mostly WRONG about this term, and the arithmetic is worth writing
+down because it reads the other way.
+
+`E[1 / surviving share]` is **scale-free in the pool size**. Shares are shares;
+25 entries and 112 give the identical number. The only place `S.pool` appears in
+`leverageWeek` is the one-entry floor, `mine = max(own, 1/pool)` — you are always
+at least one entry — and that floor **binds only on a pick nobody is on**.
+
+Measured on the real week-1 ownership (LAC 20.5%, JAX 16.6%):
+
+| | LAC | JAX | JAX/LAC |
+|---|---|---|---|
+| pool 25 | 1.362 | 1.393 | **1.023** |
+| pool 112 | 1.362 | 1.393 | **1.023** |
+
+Identical, and stable across two different reconstructions of the unpublished
+tail. Fading four points of ownership buys **2.3%** of leverage, because the
+other ~80% of the pool is in the denominator either way. Where it does bite is a
+genuine contrarian: a 2%-owned team is **1.068x** LAC at pool 25 against
+**1.102x** at 112, because in a 25-man pool you ARE 4% of it whatever an
+ESPN-wide share says.
+
+**WHAT THE MODEL IS NOT PRICING IS THE MULTI-WEEK HALF, AND THAT IS WHERE THE
+INTUITION IS RIGHT.** A larger pool takes longer to whittle down, so an early
+differentiation compounds over more weeks of attrition — and this term prices
+ONE week. `lambda` is the lever for exactly that and is documented as such
+("survivor is multi-week and winner-take-all and this model prices one week").
+Nothing here is fitted to outcomes, so no coefficient gets invented to close the
+gap; the honest statement is that pool size beyond the floor is expressed by
+`lambda` and by nothing else.
+
 ## ONE SCHEDULE, SEVERAL POOLS
 
 A 25-man ESPN pool and a large-field Splash contest are the same eighteen weeks and
