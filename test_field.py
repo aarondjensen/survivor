@@ -147,3 +147,59 @@ def test_a_contest_that_is_not_this_game_says_so(tmp_path, capsys):
     F.splash_inspect(tmp_path)
     out = capsys.readouterr().out
     assert "does not describe this contest" in out
+
+
+# --- picks: two uuid indirections, and neither is guessable -------------------
+PROP = [
+    {"id": "p-dec", "scoringPeriodId": 13, "possibleOutcomes": [
+        {"id": "o-kc-dec", "abbrev": "KC", "type": "COMPETITOR"}]},
+    {"id": "p-w1", "scoringPeriodId": 1, "possibleOutcomes": [
+        {"id": "o-lac", "abbrev": "LAC", "type": "COMPETITOR"},
+        {"id": "o-jax", "abbrev": "JAX", "type": "COMPETITOR"},
+        {"id": "o-none", "abbrev": None, "type": "TIE"}]},
+    {"id": "p-w2", "scoringPeriodId": 2, "possibleOutcomes": [
+        {"id": "o-wsh", "abbrev": "WSH", "type": "COMPETITOR"}]},
+]
+
+
+def test_a_pick_decodes_to_a_week_and_a_team():
+    entry = {"picks": [
+        {"propositionId": "p-w2", "outcomesPicked": [{"outcomeId": "o-wsh"}]},
+        {"propositionId": "p-w1", "outcomesPicked": [{"outcomeId": "o-jax"}]}]}
+    got, bad = F.decode_picks(entry, PROP)
+    # Oldest week first, and WSH normalises to the abbreviation our board uses.
+    assert got == [(1, "JAX"), (2, "WAS")]
+    assert bad == []
+
+
+def test_the_week_comes_from_scoringPeriodId_not_the_array_index():
+    # PROP[0] is a DECEMBER week, exactly as ESPN's real response has it. Index
+    # -as-week would file it under week 1 and the number would still look fine.
+    entry = {"picks": [{"propositionId": "p-dec", "outcomesPicked": [{"outcomeId": "o-kc-dec"}]}]}
+    assert F.decode_picks(entry, PROP)[0] == [(13, "KC")]
+
+
+def test_a_pick_that_does_not_decode_is_dropped_and_named():
+    # A burned team we invent is one the board stops offering all season, so an
+    # unknown uuid on either axis must never be filed under a guess.
+    entry = {"picks": [
+        {"propositionId": "p-unknown", "outcomesPicked": [{"outcomeId": "o-jax"}]},
+        {"propositionId": "p-w1", "outcomesPicked": [{"outcomeId": "o-mystery"}]},
+        {"propositionId": "p-w1", "outcomesPicked": [{"outcomeId": "o-lac"}]}]}
+    got, bad = F.decode_picks(entry, PROP)
+    assert got == [(1, "LAC")]
+    assert len(bad) == 2
+
+
+def test_my_entry_handles_both_shapes_of_the_members_response():
+    e = {"id": "mine", "picks": []}
+    assert F.my_entry([e]) is e
+    assert F.my_entry({"entries": [e]}) is e
+    assert F.my_entry(e) is e
+    assert F.my_entry({}) == {}
+
+
+def test_no_picks_yet_is_empty_not_an_error():
+    # Week 1 before lock: this is the normal state, not a failure.
+    assert F.decode_picks({"picks": []}, PROP) == ([], [])
+    assert F.decode_picks({}, PROP) == ([], [])

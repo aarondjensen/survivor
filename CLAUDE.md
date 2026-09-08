@@ -307,6 +307,44 @@ On a failure it writes **nothing** and says so: the page stays on its labelled
 sample, which is the honest outcome, because a schedule three games short renders
 exactly like a complete one.
 
+## YOUR OWN PICKS ARE READABLE; THE FIELD'S ARE NOT, AND THAT SPLIT IS THE POINT
+
+`--inspect` on the real probe, 2026-09-08, settled where a pick lives. It is on
+the **members** response and it is two uuid indirections deep:
+
+    entry .picks[] .propositionId               -> WEEK, via propositions[].id
+                   .outcomesPicked[] .outcomeId -> TEAM, via that proposition's
+                                                   possibleOutcomes[].id
+
+**NEITHER INDIRECTION IS GUESSABLE.** A pick names a uuid on both axes; nothing
+in it says "week 3" or "KC". The propositions response is the decoder ring, and
+`decode_picks` DROPS and NAMES a pick whose ids are not in it rather than filing
+it under a guess — a burned team we invent is one the board stops offering you
+for the whole season. The week comes from `scoringPeriodId`, never the array
+index, which is the same trap the ownership parser was written against and it is
+live in this data: `propositions[0]`'s outcomes lock on **2026-12-04**.
+
+**THE GROUP VIEW CARRIES SCORES AND NO PICKS.** Its entries are
+`{challengeId, id, member, name, score}` — 25 of them, `SURVIVING 25`,
+`scoreByPeriod` per week. So you can see who is alive and never what they took.
+The field's burned teams therefore remain the largest modelled-away term in the
+leverage half, exactly as the ownership section says. `showGroupPicks` is true on
+this pool, so the reveal is expected once a week locks; whether it arrives on
+this endpoint or another is a MEASUREMENT, and `--inspect A --against B` is how
+it gets made rather than remembered.
+
+**IT IS ADDED TO THE BOARD, NEVER SUBTRACTED FROM IT.** `FIELD.mine` marks your
+submitted picks burned on the ESPN tab and does nothing else. The platform knows
+what you SUBMITTED; the board is also where you plan a pick you have not
+submitted yet, so a pull that un-burned a team you burned here on purpose would
+quietly undo a decision. It does not merge into the other pool tabs either — it
+is this pool's record and nobody else's. The week advances to the first week you
+have not filed, and never backwards.
+
+**WEEK 1 IS THE ONE WEEK THIS COSTS NOTHING.** Nobody has burned anything yet, so
+the missing rivals'-picks term is exactly zero and the board is at its most
+complete right now. It grows from week 2.
+
 ## SPLASH: WHAT IT SERVES, AND THE ONE THING IT DOES NOT
 
 Two walks, and only the second one settles anything. `--discover` on the public

@@ -540,6 +540,111 @@ def detail(node, depth=0, path="$", maxdepth=4, redact=True):
         print(f"{pad}{path} = {v[:90]}")
 
 
+# ---------------------------------------------------------------------------
+# PICKS. Observed by --inspect on 2026-09-08, on the members response:
+#
+#   entry .picks[] .propositionId          -> which WEEK, via propositions[].id
+#                  .outcomesPicked[] .outcomeId -> which TEAM, via that
+#                                        proposition's possibleOutcomes[].id
+#
+# TWO INDIRECTIONS AND NEITHER IS GUESSABLE. A pick names a uuid on both axes;
+# nothing in it says "week 3" or "KC". So the propositions response is the
+# decoder ring, and a pick whose ids are not in it is DROPPED and named rather
+# than filed under a guess -- the Michael Carter rule. A burned team we invent
+# is a team the board stops offering you for the whole season.
+# ---------------------------------------------------------------------------
+
+def decode_picks(entry, prop):
+    """[(week, TEAM)] for one entry, oldest week first, plus what did not decode."""
+    week_of, team_of = {}, {}
+    for pr in prop:
+        pid, wk = pr.get("id"), pr.get("scoringPeriodId")
+        if pid and isinstance(wk, int):
+            week_of[pid] = wk
+        for o in pr.get("possibleOutcomes") or []:
+            if o.get("type") == "COMPETITOR" and o.get("id"):
+                team_of[o["id"]] = ps.norm(o.get("abbrev"))
+
+    out, bad = [], []
+    for pk in (entry or {}).get("picks") or []:
+        wk = week_of.get(pk.get("propositionId"))
+        for o in pk.get("outcomesPicked") or []:
+            ab = team_of.get(o.get("outcomeId"))
+            if wk is None or ab is None or ab not in ps.IDX:
+                bad.append(f"week={wk} outcome={str(o.get('outcomeId'))[:8]}...")
+                continue
+            out.append((wk, ab))
+    out.sort()
+    return out, bad
+
+
+def my_entry(mem):
+    """The members response holds YOUR entry. It is a list or a single object
+    depending on the view, and picking [0] off the wrong one silently reads a
+    stranger -- so both shapes are handled and the id is returned with it."""
+    if isinstance(mem, list):
+        return mem[0] if mem else {}
+    for k in ("entries", "members", "data"):
+        v = mem.get(k)
+        if isinstance(v, list) and v:
+            return v[0]
+    return mem if isinstance(mem, dict) else {}
+
+
+def skeleton(node, path="$", out=None, depth=0):
+    """Every path in a document, with what sits at it. Values are NOT recorded --
+    a diff of two probes is about what the response CARRIES, and a picks array
+    full of real picks is exactly what must not be printed."""
+    out = {} if out is None else out
+    if depth > 6: return out
+    if isinstance(node, dict):
+        # A map keyed on uuids (Splash's teams) would otherwise make every key a
+        # separate path and drown the diff. Collapse it to one representative.
+        keys = list(node)
+        idish = len(keys) > 4 and all(re.fullmatch(r"[0-9a-f-]{8,36}", str(k) or "", re.I) for k in keys)
+        out[path] = f"object[{len(keys)}]" + (" keyed by id" if idish else "")
+        for k in (keys[:1] if idish else sorted(keys)):
+            skeleton(node[k], f"{path}.{'<id>' if idish else k}", out, depth + 1)
+    elif isinstance(node, list):
+        out[path] = f"list[{len(node)}]"
+        if node: skeleton(node[0], path + "[0]", out, depth + 1)
+    else:
+        out[path] = type(node).__name__
+    return out
+
+
+def diff_probes(old: pathlib.Path, new: pathlib.Path):
+    """What did locking the week actually add?
+
+    A GUESS ABOUT THIS IS FREE AND WRONG HALF THE TIME. Platforms reveal picks
+    after a deadline, or they do not, and the only honest way to find out is to
+    hold a probe from before against a probe from after. Structure only: no
+    value from either side is printed, so a diff can be pasted."""
+    names = sorted({p.stem for p in list(old.glob("*.json")) + list(new.glob("*.json"))})
+    if not names:
+        raise SystemExit(f"No .json in {old} or {new}. Run --probe --save on each first.")
+    load = lambda d, n: json.loads((d / f"{n}.json").read_text(encoding="utf-8"))
+    for n in names:
+        try: a = skeleton(load(old, n))
+        except FileNotFoundError: a = None
+        try: b = skeleton(load(new, n))
+        except FileNotFoundError: b = None
+        print("=" * 72)
+        if a is None: print(f"{n}: only in {new} -- a NEW endpoint answered"); continue
+        if b is None: print(f"{n}: only in {old} -- it stopped answering"); continue
+        added = sorted(set(b) - set(a))
+        gone = sorted(set(a) - set(b))
+        moved = sorted(k for k in set(a) & set(b) if a[k] != b[k])
+        if not (added or gone or moved):
+            print(f"{n}: identical structure"); continue
+        print(n)
+        for k in added: print(f"  + {k}: {b[k]}")
+        for k in gone:  print(f"  - {k}: {a[k]}")
+        for k in moved: print(f"  ~ {k}: {a[k]} -> {b[k]}")
+    print("=" * 72)
+    print("A `+ ...picks...` line is the one worth having. No values were read.")
+
+
 def splash_inspect(d: pathlib.Path):
     """Read what --probe --platform splash saved and print the parts a parser
     keys on -- plus the two things only a comparison can answer: whether the
@@ -760,6 +865,9 @@ def main():
                     help="write even if the ownership table fails verification")
     ap.add_argument("--inspect", metavar="DIR",
                     help="read what --probe --save wrote and print the parts a parser keys on")
+    ap.add_argument("--against", metavar="DIR",
+                    help="with --inspect, diff the STRUCTURE of two saved probes -- what a "
+                         "week locking actually added. No values are read, so it can be pasted")
     ap.add_argument("--dump", metavar="URL", help="fetch one endpoint and describe the response")
     a = ap.parse_args()
     a.url = resolve_url(a.url, a.url_pos)
@@ -770,15 +878,24 @@ def main():
     if a.har:
         return from_har(pathlib.Path(a.har), registrable(a.url) if a.url else None)
 
+    if a.inspect and a.against:
+        # OLD then NEW: --inspect is the probe you already had, --against is the
+        # one you just took. Backwards prints every gain as a loss.
+        return diff_probes(pathlib.Path(a.inspect), pathlib.Path(a.against))
+
     if a.inspect:
         d = pathlib.Path(a.inspect)
         # Routed on the FILES, not on --platform: the flag says what you are
         # pulling and this reads what is already on disk, so obeying it would
         # refuse a directory that plainly holds the other platform's probe.
-        if (d / "splash_contest.json").exists() and not (d / "group.json").exists():
+        both = (d / "splash_contest.json").exists() and (d / "group.json").exists()
+        if a.platform == "splash" or ((d / "splash_contest.json").exists() and not both):
             return splash_inspect(d)
-        if a.platform == "splash":
-            return splash_inspect(d)
+        if both:
+            # One --save dir can hold both platforms' probes, and reading the
+            # ESPN half in silence looks like the Splash half is not there.
+            print(f"({d} also holds a splash probe -- "
+                  f"python pull_field.py --platform splash --inspect {d})\n")
         return inspect(d)
 
     if a.probe:
@@ -881,6 +998,17 @@ def main():
     print(f"size {grp.get('size')}, surviving {stats.get('SURVIVING')}, "
           f"eliminated {stats.get('ELIMINATED')}")
 
+    print("members ...", end=" ", flush=True)
+    st, body = fetch(urls["members"], c)
+    mem = json.loads(body) if st == 200 else {}
+    mine, bad = decode_picks(my_entry(mem), prop)
+    print(f"your entry has {len(mine)} pick(s): "
+          + (", ".join(f"wk{w} {t}" for w, t in mine) or "none yet"))
+    if bad:
+        print(f"  ! {len(bad)} pick(s) did not decode and were DROPPED: {bad[:4]}\n"
+              "  ! A burned team we invent is one the board stops offering you all season.",
+              file=sys.stderr)
+
     print("challenge ...", end=" ", flush=True)
     st, body = fetch(urls["challenge"], c)
     ch = json.loads(body) if st == 200 else {}
@@ -930,13 +1058,20 @@ def main():
         "scope": "espn-wide",
         "implied_field": implied,
         "ownership": {str(k): v for k, v in by_week.items()},
+        # YOUR OWN PICKS, decoded. This is the "teams already burned" box filled
+        # in from the record rather than retyped -- and unlike ownership it is
+        # about THIS pool exactly, not ESPN at large. Rivals' picks are not here:
+        # the group view carries scores and no picks, so the field's burned teams
+        # remain the largest modelled-away term in the leverage half.
+        "mine": [{"week": w, "team": t} for w, t in mine],
     }
     p = pathlib.Path(a.out)
     p.write_text("/* Generated by pull_field.py -- do not edit by hand. */\n"
                  "window.FIELD = " + json.dumps(out, separators=(",", ":")) + ";\n",
                  encoding="utf-8")
     print(f"\nwrote {p}: ownership for {len(by_week)} week(s), "
-          f"pool {out['group']['surviving']}/{out['group']['size']} alive.")
+          f"pool {out['group']['surviving']}/{out['group']['size']} alive, "
+          f"{len(mine)} of your own pick(s).")
     print("Open index.html -- ownership now comes from ESPN's counters, not the softmax.")
     return
 

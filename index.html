@@ -1310,7 +1310,13 @@ if (FIELD) {
     "They are used for <b>every pool tab</b>, including one on another platform, " +
     "because a measured proxy beats a modelled one and no other platform publishes " +
     "counts. Paste your own numbers over them whenever you have better \u2014 " +
-    "pasted ownership belongs to the pool it was pasted into.";
+    "pasted ownership belongs to the pool it was pasted into." +
+    (FIELD.mine && FIELD.mine.length
+      ? " <b>Your " + FIELD.mine.length + " submitted pick" + (FIELD.mine.length > 1 ? "s are" : " is") +
+        "</b> marked burned on this tab: " +
+        FIELD.mine.map(m => esc(m.team) + " (wk " + esc(m.week) + ")").join(", ") +
+        ". A pull only ever adds \u2014 a team you burned here by hand stays burned."
+      : "");
 }
 if (IS_REAL) {
   $("#provenance").innerHTML = "<b>Real slate loaded from season.js.</b> " + esc(SAMPLE.note || "") +
@@ -1327,7 +1333,22 @@ try {
    left, so the alive count is the honest default -- but never over a number you
    set yourself. */
 if (!hadSaved && FIELD && FIELD.group && FIELD.group.surviving) S.pool = FIELD.group.surviving;
-ensurePools();          /* after the FIELD default, or pool one is born at 500 */
+/* YOUR OWN PICKS, OFF THE RECORD RATHER THAN RETYPED. Only ever ADDED, never
+   used to remove one: the platform knows what you submitted, and the board is
+   also where you plan a pick you have not submitted yet -- so a pull must not
+   quietly un-burn a team you burned here on purpose. Deliberately not merged
+   into the other tabs: it is this pool's record and nobody else's. */
+if (FIELD && Array.isArray(FIELD.mine)) {
+  for (const m of FIELD.mine) {
+    const t = BY_ABBR.has(m.team) ? BY_ABBR.get(m.team) : -1;
+    if (t >= 0 && !S.used.includes(t)) S.used.push(t);
+  }
+  /* The week you are picking for is the first one you have not filed, but never
+     backwards: reviewing week 2 must not be undone by a pull. */
+  const next = FIELD.mine.reduce((a, m) => Math.max(a, m.week), 0);
+  if (!hadSaved && next > 0) S.week = Math.min(W - 1, next);
+}
+ensurePools();          /* after the FIELD defaults, or pool one is born at 500 */
 stash();
 render();
 
