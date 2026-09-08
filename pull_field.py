@@ -64,8 +64,12 @@ def creds(env_path=None):
             if "=" in line and not line.strip().startswith("#"):
                 k, v = line.split("=", 1)
                 env[k.strip().upper()] = v.strip().strip("'\"")
-    swid = os.environ.get("SWID") or env.get("SWID") or ""
-    s2 = os.environ.get("ESPN_S2") or env.get("ESPN_S2") or ""
+    # draftkit's creds.py spells it ESPN_SWID; a bare SWID is what the browser
+    # calls the cookie. Accept both, draftkit's name first, so pointing --env at
+    # its file works without renaming anything over there.
+    pick = lambda *names: next((v for n in names for v in (os.environ.get(n), env.get(n)) if v), "")
+    swid = pick("ESPN_SWID", "SWID")
+    s2 = pick("ESPN_S2", "S2")
     if not (swid and s2):
         raise SystemExit(
             "No ESPN cookies. This pool is private, so the request has to be you.\n\n"
@@ -73,7 +77,7 @@ def creds(env_path=None):
             "      python pull_field.py --env C:\\dev\\draftkit\\.env --discover ...\n\n"
             "  Or write a local one (gitignored here). In PowerShell, without ever\n"
             "  printing the values to your terminal:\n"
-            "      Select-String C:\\dev\\draftkit\\.env -Pattern '^(SWID|ESPN_S2)=' |\n"
+            "      Select-String C:\\dev\\draftkit\\.env -Pattern '^ESPN_S(WID|2)=' |\n"
             "        ForEach-Object { $_.Line } | Set-Content C:\\dev\\survivor\\.env\n\n"
             "  They are session cookies for your whole ESPN account: never commit them,\n"
             "  and rotate by signing out of ESPN and back in if they ever leak."
