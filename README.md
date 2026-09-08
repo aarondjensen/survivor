@@ -64,12 +64,19 @@ fixture and no probability is anyone's forecast.
 Paste your own grid (`TEAM, w1, w2, …`, percent or decimal, `BYE` for byes) and your
 pool's own projected ownership in the panel at the foot of the page.
 
+**Ownership is the weakest input in the tool.** With nothing pasted it is a softmax
+over win probability — a constant fitted to nothing — so it carries no information
+the win probabilities did not already carry, and the leverage half is then correct
+arithmetic over invented input. `pull_field.py` is the fix: it reads your ESPN pool
+for who is still alive and which teams they have already spent.
+
 ## Files
 
 | | |
 |---|---|
 | `index.html` | the whole tool, and the source of truth |
 | `pull_season.py` | pulls the real schedule + market spreads, writes `season.js` |
+| `pull_field.py` | reads your ESPN pool: who is alive, what they have burned |
 | `build_artifact.py` | emits the shell-less fragment for publishing as an Artifact |
 | `make_sample_season.py` | regenerates the synthetic sample slate |
 | `test_fit.py` | pins the measured claims about the ratings fit |

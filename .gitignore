@@ -6,3 +6,5 @@ season.js
 artifact.html
 *.png
 preview.html
+
+.env

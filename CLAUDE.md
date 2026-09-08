@@ -135,6 +135,36 @@ A 403 is a REFUSAL, not a missing page, and the first cut of this file printed
 "a 404 usually means that week is not published yet" *on a 403* — a confident
 wrong diagnosis in the one place you read when something breaks.
 
+## OWNERSHIP IS THE WEAKEST INPUT HERE, AND IT IS INVENTED
+
+`ownership_model` is `exp(OWN_K * (p - 0.5))`, normalised, with `OWN_K = 13` chosen
+so the top favourite lands near 30% — a figure taken from the source article, fitted
+to **nothing**. So with nothing pasted, projected ownership is a **monotone function
+of win probability** and carries no information the win probabilities did not already
+carry. The leverage half is correct arithmetic over invented input, which is worse
+than it sounds: it is the half the whole third pillar rests on.
+
+**AND THE FIELD'S BURNED TEAMS ARE MODELLED NOWHERE AT ALL.** The board projects the
+field's week 11 ownership as though all 32 teams were available to every rival. They
+are not — a rival who spent Baltimore in week 2 cannot take Baltimore again — and
+this is the largest single error in the leverage half. The alive count is the same
+shape of error one size down: pools shrink every week and `S.pool` is a static input,
+so the leverage denominator is wrong from week 2 onward.
+
+**`pull_field.py` IS THE FIX AND IT REFUSES TO GUESS.** ESPN's games platform
+(Gambit — `fantasy.espn.com/games/nfl-survivor-2026/...`) is NOT the `ffl` fantasy
+API draftkit talks to, and its endpoints are undocumented. So `--discover` drives a
+real browser through the user's own session and RECORDS the calls the page makes:
+the endpoint is observed, not assumed. Until one has been, the script writes
+**nothing** and says so — a parser written against a guessed shape produces a file
+that looks right and is not, which is this codebase's recurring failure mode.
+
+**PICKS ARE HIDDEN UNTIL LOCK, AND THAT IS THE GAME.** Nothing can show you this
+week's picks before the deadline. What locked weeks give is the alive count, every
+surviving entry's spent teams, and what this room ACTUALLY picked — which is what
+you calibrate `OWN_K` against, or replace it with outright, since a projection
+conditioned on each rival's remaining teams beats any curve fitted to one number.
+
 **RIDGE SHRINKS, AND AT 1.0 IT WAS EATING 14% OF THE LADDER.** The fit only ever
 determines DIFFERENCES between ratings, so something has to pin the additive
 constant; ridge does that and regularises thin data at the same time. It also
