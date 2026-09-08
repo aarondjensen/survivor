@@ -70,17 +70,29 @@ the win probabilities did not already carry, and the leverage half is then corre
 arithmetic over invented input. `pull_field.py` is the fix: it reads your ESPN pool
 for who is still alive and which teams they have already spent.
 
+**Several pools, one schedule.** Pool tabs above the setup bar: each carries its own
+size, entries, leverage weight, burned teams and pasted ownership; the schedule, the
+grid and the ratings are shared. A 25-man ESPN pool and a large-field Splash contest
+are the same eighteen weeks and genuinely different games.
+
+Splash was walked signed-in and **publishes no ownership and no entrants list** — its
+`picksheets` endpoint gives the slate and your own picks, so it supplies pool size and
+what you have spent, and the field's ownership stays ESPN's measured counters or the
+model.
+
 ## Files
 
 | | |
 |---|---|
 | `index.html` | the whole tool, and the source of truth |
 | `pull_season.py` | pulls the real schedule + market spreads, writes `season.js` |
-| `pull_field.py` | reads your ESPN pool: who is alive, and ESPN's real pick counters |
+| `pull_field.py` | reads your ESPN pool: who is alive, and ESPN's real pick counters. `--platform splash` walks the Splash endpoints too |
 | `build_artifact.py` | emits the shell-less fragment for publishing as an Artifact |
 | `make_sample_season.py` | regenerates the synthetic sample slate |
 | `test_fit.py` | pins the measured claims about the ratings fit |
+| `test_field.py` | pins the id parsing, and that each credential reaches one host |
 | `test_leverage.js` | pins the leverage model (`node test_leverage.js`) |
+| `test_pools.js` | pins that two pools stay two pools (`node test_pools.js`) |
 | `CLAUDE.md` | why it is built this way, and the traps already hit |
 
 Method follows the three pillars in Rick Gehman's *The Lone Survivor*

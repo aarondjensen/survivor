@@ -307,6 +307,86 @@ On a failure it writes **nothing** and says so: the page stays on its labelled
 sample, which is the honest outcome, because a schedule three games short renders
 exactly like a complete one.
 
+## SPLASH: WHAT IT SERVES, AND THE ONE THING IT DOES NOT
+
+Two walks, and only the second one settles anything. `--discover` on the public
+page reported split.io identifying the visitor as `anonymous-user-...`, so it saw
+the logged-out view; no entries, no picks. **That is the shape of a page nobody is
+signed in to, and reading it as "Splash does not serve picks" would have been the
+confident wrong answer.**
+
+The captcha then refused the driven window — the same Turnstile-class refusal
+draftkit's `platforms/browser.py` was written for, and the same three fixes
+(`--enable-automation` off, real Chrome channel, no UA spoof, persistent profile)
+were ported here. It still refused, so the route that has nothing to challenge is
+the one that worked: **a HAR exported by hand from the signed-in page**. Five calls:
+
+    GET /contests/<contest>                                          170,948 B
+    GET /contests/<contest>/slates                                     7,475 B
+    GET /contests/<contest>/users/<user>/entries?limit=150&offset=0      375 B
+    GET /slates/<slate>/picksheets?contestId=<contest>&sort=startTime          10,636 B
+    GET /slates/<slate>/picksheets?contestId=<contest>&entryId=<entry>&…       12,365 B
+
+**`picksheets` IS THE PICK SURFACE, AND IT IS ONE ENDPOINT TWICE** — without
+`entryId` it is the slate, with it your own picks come back alongside. That is what
+a parser keys on.
+
+**THERE IS NO OWNERSHIP ENDPOINT AND NO ENTRANTS LIST, AND THAT IS A FINDING RATHER
+THAN A GAP IN THE WALK.** The page was signed in and rendered fully, and nothing
+resembling ESPN's `choiceCounters` was requested. So Splash can give **pool size and
+your own picks**; the field's ownership stays modelled, or ESPN's counters stand in
+as the measured proxy. Inventing a Splash ownership number would render identically
+to ESPN's measured one, which is the whole failure mode this file exists to name.
+
+**AN ENDPOINT WE LACK IDS FOR IS OMITTED, NEVER BUILT WITH A HOLE IN IT.** The user
+id is in the entries path only and the picks URL does not carry it, so without
+`--splash-user` that call is skipped and says so. A URL assembled around a `None`
+404s, and a 404 from our own bad URL reads exactly like Splash refusing us.
+
+**`location-token-v2` IS A CREDENTIAL AND IT IS SCOPED LIKE ONE.** Every
+contests-service call carries it. It lives in `SPLASH_LOCATION_TOKEN` (env or the
+gitignored `.env`), never in the repo, and `fetch()` sends it only under
+`SPLASH_SCOPE` — the identical rule the ESPN cookies get under `COOKIE_SCOPE`,
+because the first cut of `fetch()` attached ESPN session cookies to *whatever URL it
+was handed* and pointing `--dump` at Splash would have posted them to a third party.
+`--dump` now asks for whichever secret the TARGET needs, so demanding ESPN cookies
+for a Splash URL can no longer refuse a session that is fine. `test_field.py` pins
+both directions, and pins that `splashsports.com.evil.example` is not under the scope.
+
+**A HAR HOLDS LIVE CREDENTIALS.** That capture carried the session's location token,
+an Intercom `user_hash`, a Braze key, a Segment write key, an email address and a
+wallet balance. It is read locally, only SHAPES are printed, `*.har` is gitignored —
+and a HAR is never pasted anywhere, including into a chat.
+
+## ONE SCHEDULE, SEVERAL POOLS
+
+A 25-man ESPN pool and a large-field Splash contest are the same eighteen weeks and
+two completely different games: the alive count is the leverage denominator, and
+burned teams are per ENTRY, so a team gone in one is untouched in the other. Pool
+tabs are that, and nothing more.
+
+**PER-POOL is `pool`, `entries`, `lam`, `used`, `pins`, `own`** (`POOL_KEYS`).
+**SHARED is `week`, `doubles`, `grid`, `ratings`** — those are the schedule and the
+model, and duplicating them per pool would let two tabs disagree about what a team's
+win probability is.
+
+**THE LIVE STATE *IS* `pools[pi]` WHILE YOU ARE ON IT.** `stash()` writes the live
+values back before anything reads the list; `loadPool()` reads them out. Two copies
+of one fact is how a pool ends up wearing the other pool's burned teams — a board
+that renders perfectly and recommends a team you already used. `test_pools.js` pins
+the round trip, that the records do not share one `used[]` array, and that every
+field on a pool record is in `POOL_KEYS`, since one left out is copied on neither leg.
+
+**MIGRATION BUILDS POOL ONE FROM WHAT IS ON SCREEN, NOT FROM A DEFAULT.** A board
+saved before pools existed has one pool and it is the season you have been keeping;
+`ensurePools()` stashes the live values into it. A default there would silently
+discard a season of picks. A stale `pi` clamps rather than blanking the board.
+
+**ESPN'S COUNTERS APPLY TO EVERY TAB AND THE PAGE SAYS SO.** They are ESPN-wide
+already, no other platform publishes counts, and a measured proxy beats a modelled
+one. Pasted ownership is per-pool, because pasting numbers is a claim about a
+specific room.
+
 ## THE SHIPPED SLATE IS SAMPLE DATA AND THE PAGE NEVER STOPS SAYING SO
 
 There is no real schedule in this repo and no published win-probability source, so

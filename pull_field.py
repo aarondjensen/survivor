@@ -65,13 +65,39 @@ PAGE = 50
 
 
 # ---------------------------------------------------------------------------
-# SPLASH SPORTS. Observed by --discover on 2026-09-08, ANONYMOUSLY: the walk
-# reported split.io identifying the visitor as `anonymous-user-...`, so what
-# follows is the PUBLIC view of a contest. No entries endpoint and no picks
-# endpoint appeared, which is the expected shape of a page nobody is signed in
-# to -- not evidence that Splash does not serve them.
+# SPLASH SPORTS. Two walks, and the second one is the one that counts.
+#
+#   ANONYMOUS (--discover, 2026-09-08): the walk reported split.io identifying
+#   the visitor as `anonymous-user-...`, so it saw the PUBLIC view of a contest.
+#   No entries and no picks appeared. That is the shape of a page nobody is
+#   signed in to, not evidence about what Splash serves.
+#
+#   SIGNED IN (a HAR exported from the picks page by hand, 2026-09-08, after the
+#   captcha refused the driven window). Five calls, and they settle the question:
+#
+#     GET /contests/<contest>                                        170,948 B
+#     GET /contests/<contest>/slates                                   7,475 B
+#     GET /contests/<contest>/users/<user>/entries?limit=150&offset=0    375 B
+#     GET /slates/<slate>/picksheets?contestId=<contest>&sort=startTime          10,636 B
+#     GET /slates/<slate>/picksheets?contestId=<contest>&entryId=<entry>&...     12,365 B
+#
+# PICKSHEETS IS THE PICK SURFACE, and it is the same endpoint twice: without
+# `entryId` it is the slate, with it your own picks come back alongside. That is
+# what a parser keys on.
+#
+# THERE IS NO OWNERSHIP ENDPOINT AND NO ENTRANTS LIST IN THAT CAPTURE, and that
+# is the finding, not a gap in the walk -- the page was signed in, it rendered
+# fully, and nothing resembling ESPN's `choiceCounters` was requested. So Splash
+# can give POOL SIZE and YOUR OWN PICKS; the field's ownership has to keep coming
+# from the model. Saying otherwise would be inventing a number.
+#
+# THE CALLS CARRY A `location-token-v2` HEADER. It is a per-session geolocation
+# grant, it is a credential, and it is not in the repo: SPLASH_LOCATION_TOKEN in
+# .env (gitignored) or the environment, sent to splashsports.com and nowhere
+# else. Without it these may 401 -- which is a real answer and is printed as one.
 # ---------------------------------------------------------------------------
 SPLASH = "https://api.splashsports.com/contests-service/api"
+SPLASH_SCOPE = "splashsports.com"
 
 
 def contest_id(url_or_id: str) -> str:
@@ -84,16 +110,53 @@ def contest_id(url_or_id: str) -> str:
 
 def splash_ids(url: str) -> dict:
     """A Splash picks URL carries three ids and they are not interchangeable:
-    /contest/<contestId>/picks?entryId=<entryId>&slateId=<slateId>."""
+    /contest/<contestId>/picks?entryId=<entryId>&slateId=<slateId>.
+
+    The USER id is a fourth and the URL does not carry it -- it is in the entries
+    path only. --splash-user takes it; without it the entries call is skipped
+    rather than guessed at."""
     q = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)
     return {"contest": contest_id(url),
             "entry": (q.get("entryId") or [None])[0],
             "slate": (q.get("slateId") or [None])[0]}
 
 
-def splash_endpoints(cid: str) -> dict:
-    return {"contest": f"{SPLASH}/contests/{cid}",
-            "slates":  f"{SPLASH}/contests/{cid}/slates"}
+def splash_endpoints(ids: dict, user: str | None = None) -> dict:
+    """Exactly the five URLs the signed-in capture made, and no invented sixth.
+
+    An endpoint whose ids we do not hold is LEFT OUT rather than built with a
+    hole in it: a 404 from a URL we assembled ourselves reads like Splash
+    refusing us, which is the confident wrong answer this file keeps avoiding."""
+    cid, slate, entry = ids.get("contest"), ids.get("slate"), ids.get("entry")
+    out = {"contest": f"{SPLASH}/contests/{cid}",
+           "slates":  f"{SPLASH}/contests/{cid}/slates"}
+    if user:
+        out["entries"] = (f"{SPLASH}/contests/{cid}/users/{user}/entries"
+                          f"?limit=150&offset=0")
+    if slate:
+        out["picksheets"] = (f"{SPLASH}/slates/{slate}/picksheets"
+                             f"?contestId={cid}&sort=startTime")
+        if entry:
+            out["picksheets_mine"] = (f"{SPLASH}/slates/{slate}/picksheets"
+                                      f"?contestId={cid}&entryId={entry}&sort=startTime")
+    return out
+
+
+def splash_token(env_path=None) -> str:
+    """`location-token-v2`, read from the environment or .env. Never printed.
+
+    It is short-lived and tied to a signed-in session, so the honest failure when
+    it is absent is the endpoint's own 401 -- not a refusal here, because some of
+    these calls may well be public and refusing in advance would hide that."""
+    env = {}
+    for p in ([pathlib.Path(env_path)] if env_path else [HERE / ".env"]):
+        if not p.exists(): continue
+        for line in p.read_text(encoding="utf-8-sig", errors="replace").splitlines():
+            if "=" in line and not line.strip().startswith("#"):
+                k, v = line.split("=", 1)
+                env[k.strip().upper()] = v.strip().strip("'\"")
+    return (os.environ.get("SPLASH_LOCATION_TOKEN")
+            or env.get("SPLASH_LOCATION_TOKEN") or "")
 
 
 def endpoints(gid: str, offset: int = 0, limit: int = PAGE) -> dict:
@@ -197,27 +260,43 @@ def group_id(url_or_id: str) -> str:
 COOKIE_SCOPE = "espn.com"   # the only host our stored cookies belong to
 
 
-def fetch(url: str, cookies: dict) -> tuple[int, str]:
-    """COOKIES GO TO ONE DOMAIN AND NOWHERE ELSE.
+def under(host: str, scope: str) -> bool:
+    return host == scope or host.endswith("." + scope)
+
+
+def fetch(url: str, cookies: dict, token: str = "") -> tuple[int, str]:
+    """EVERY CREDENTIAL GOES TO ONE DOMAIN AND NOWHERE ELSE.
 
     The first cut attached the ESPN cookies -- session credentials for a whole
     ESPN account -- and an ESPN Referer to WHATEVER URL it was handed. Pointing
     --dump at another platform's API would have posted them straight to a third
     party. Now the host has to be under COOKIE_SCOPE or the request goes out
-    bare, and the Referer is derived from the target rather than hardcoded."""
+    bare, and the Referer is derived from the target rather than hardcoded.
+
+    `token` is Splash's `location-token-v2` and follows the identical rule under
+    SPLASH_SCOPE. Two secrets, two scopes, one gate -- adding the second one
+    beside the first is how it ends up going somewhere it should not."""
     host = (urllib.parse.urlparse(url).hostname or "").lower()
-    scoped = host == COOKIE_SCOPE or host.endswith("." + COOKIE_SCOPE)
+    scoped = under(host, COOKIE_SCOPE)
+    splashy = under(host, SPLASH_SCOPE)
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                       "(KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36",
         "Accept": "application/json, text/plain, */*",
         "Referer": f"https://fantasy.espn.com/games/{GAME}/" if scoped
+                   else "https://app.splashsports.com/" if splashy
                    else f"https://{host}/",
     }
     if scoped and cookies:
         headers["Cookie"] = "; ".join(f"{k}={v}" for k, v in cookies.items())
     elif cookies:
         print(f"  (no cookies sent: {host} is outside {COOKIE_SCOPE})", file=sys.stderr)
+    if token:
+        if splashy:
+            headers["location-token-v2"] = token
+        else:
+            print(f"  (no location token sent: {host} is outside {SPLASH_SCOPE})",
+                  file=sys.stderr)
     req = urllib.request.Request(url, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=30) as r:
@@ -574,6 +653,9 @@ def main():
                     help="close the browser after a few seconds instead of waiting for Enter")
     ap.add_argument("--platform", choices=["espn", "splash"], default="espn",
                     help="which pool platform the URL belongs to")
+    ap.add_argument("--splash-user", metavar="UUID",
+                    help="your Splash user id -- the entries endpoint is keyed on it and "
+                         "the picks URL does not carry it. Without it that one call is skipped")
     ap.add_argument("--no-creds", action="store_true",
                     help="open the browser with no stored cookies -- sign in by hand. "
                          "Use for a site we hold no credentials for yet")
@@ -607,10 +689,18 @@ def main():
             cid = ids["contest"]
             out_dir = pathlib.Path(a.save) if a.save else None
             if out_dir: out_dir.mkdir(parents=True, exist_ok=True)
-            for name, url in splash_endpoints(cid).items():
+            eps = splash_endpoints(ids, a.splash_user)
+            token = splash_token(a.env)
+            print("location-token-v2: " + ("present" if token else
+                  "ABSENT -- set SPLASH_LOCATION_TOKEN if these come back 401"))
+            if not a.splash_user:
+                print("no --splash-user, so the entries call is skipped rather than guessed")
+            for name, url in eps.items():
                 print("=" * 72)
                 print(f"{name}\n  {url}")
-                status, body = fetch(url, {})          # public: no credentials at all
+                # No ESPN cookies here, ever. fetch() would refuse them anyway;
+                # not passing them is the belt to that brace.
+                status, body = fetch(url, {}, token=token)
                 print(f"  HTTP {status}  ({len(body)} bytes)")
                 if status != 200:
                     print("  " + body[:400].replace("\n", " ")); continue
@@ -623,9 +713,10 @@ def main():
                         json.dumps(data, indent=1), encoding="utf-8")
                     print(f"  -> saved {out_dir / ('splash_' + name + '.json')}")
             print("=" * 72)
-            print("Entries and picks were NOT among the anonymous calls. If this contest\n"
-                  "exposes ownership at all it will be behind a signed-in session -- re-run\n"
-                  "--discover, sign in inside the window, and let the entries list render.")
+            print("THE SIGNED-IN CAPTURE SHOWED NO OWNERSHIP AND NO ENTRANTS ENDPOINT, so\n"
+                  "what Splash can supply is POOL SIZE and YOUR OWN PICKS. Ownership stays\n"
+                  "modelled here; a number invented to fill that column would look exactly\n"
+                  "like ESPN's measured one. Nothing was written to field.js.")
             return
         gid = group_id(a.url)
         c = creds(a.env)
@@ -654,7 +745,13 @@ def main():
         return
 
     if a.dump:
-        status, body = fetch(a.dump, creds(a.env))
+        # DEMANDING ESPN COOKIES FOR A URL THAT IS NOT ESPN'S is how a good
+        # session gets refused for the wrong reason -- and fetch() would decline
+        # to send them there anyway. Ask for what the target actually needs.
+        host = (urllib.parse.urlparse(a.dump).hostname or "").lower()
+        espn = under(host, COOKIE_SCOPE)
+        status, body = fetch(a.dump, creds(a.env) if espn else {},
+                             token=splash_token(a.env) if under(host, SPLASH_SCOPE) else "")
         print(f"HTTP {status}  ({len(body)} bytes)\n")
         if status != 200:
             print(body[:600])

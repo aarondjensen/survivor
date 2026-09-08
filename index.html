@@ -75,6 +75,18 @@ section{margin-bottom:30px}
 .shead h2{font-size:19px;font-weight:700;letter-spacing:-.015em}
 .shead .hint{color:var(--ink3);font-size:12.5px;margin-left:auto;text-align:right}
 
+/* ---- pool tabs ---- */
+.ptabs{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 10px}
+.ptab{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;
+  border:1px solid var(--line);background:var(--panel2);color:var(--dim);
+  font:600 12px/1 var(--ui);cursor:pointer}
+.ptab .n{font-variant-numeric:tabular-nums;font-weight:500;opacity:.75}
+.ptab.on{border-color:var(--brass);color:var(--ink);background:var(--panel)}
+.ptab .x{opacity:.45;font-weight:700;padding:0 1px}
+.ptab .x:hover{opacity:1;color:var(--bad)}
+.ptab-add{border-style:dashed;color:var(--dim)}
+@media (hover:hover){.ptab:hover{color:var(--ink)}}
+
 /* ---- setup bar ---- */
 .setup{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:1px;
   background:var(--line);border:1px solid var(--line);border-radius:4px;overflow:hidden}
@@ -263,6 +275,7 @@ footer b{color:var(--ink2);font-weight:600}
       <h2>Nobody else&rsquo;s pool is your pool</h2>
       <span class="hint">Size drives everything below. Fifty entries and fifty thousand are different games.</span>
     </div>
+    <div class="ptabs" id="ptabs"></div>
     <div class="setup">
       <div class="fld">
         <label for="f-week">Picking for week</label>
@@ -469,7 +482,45 @@ const S = {
   grid: null,              // imported win-prob grid, or null for the sample
   own: null,               // imported ownership {teamIdx: share}, or null for the model
   ratings: null,           // rating overrides for the sample slate
+
+  /* ONE SCHEDULE, SEVERAL POOLS. A 25-man ESPN pool and a large-field Splash
+     contest are the same eighteen weeks and completely different games: the
+     alive count sets the leverage denominator, and your burned teams are per
+     ENTRY, so a team gone in one pool is untouched in the other. Everything
+     above the line here is per-pool; week, doubles, the grid and the ratings
+     are the schedule and are shared. */
+  pools: null,             // [{name, pool, entries, lam, used, pins, own}]
+  pi: 0,                   // which one is live
 };
+/* The live copy above IS pools[pi] while you are on it -- stash() writes it
+   back before anything reads the list. Two copies of one fact is how a pool
+   ends up remembering the other pool's burned teams. */
+const POOL_KEYS = ["pool", "entries", "lam", "used", "pins", "own"];
+/* ------------------------------------------------------------- pools --- */
+function blankPool(name) {
+  return { name: name, pool: 500, entries: 1, lam: null, used: [], pins: [], own: null };
+}
+function stash() {                       // live values -> the record they came from
+  if (!S.pools || !S.pools[S.pi]) return;
+  for (const k of POOL_KEYS) S.pools[S.pi][k] = S[k];
+}
+function loadPool(i) {                   // a record -> the live values
+  const r = S.pools[i]; if (!r) return;
+  S.pi = i;
+  for (const k of POOL_KEYS) if (r[k] !== undefined) S[k] = r[k];
+}
+/* A saved board from before pools existed has one pool and it is whatever was
+   on screen. Building it from the live values rather than from a default is
+   the whole migration -- a default would silently discard a season of picks. */
+function ensurePools() {
+  if (!Array.isArray(S.pools) || !S.pools.length) {
+    S.pools = [blankPool(FIELD && FIELD.group ? "ESPN" : "Pool 1")];
+    S.pi = 0;
+    stash();
+  }
+  S.pi = Math.max(0, Math.min(S.pools.length - 1, S.pi | 0));
+}
+
 const ABBR = SAMPLE.teams.map(t => t.abbr);
 const BY_ABBR = new Map(ABBR.map((a, i) => [a, i]));
 
@@ -978,7 +1029,7 @@ function render() {
   try {
     const R = LAST = evaluate();
     $("#fatal").innerHTML = "";
-    renderControls(R); renderPick(R); renderTable(R); renderPath(R); renderGrid(R); renderRatings();
+    renderPools(); renderControls(R); renderPick(R); renderTable(R); renderPath(R); renderGrid(R); renderRatings();
   } catch (e) {
     $("#fatal").innerHTML = '<div class="warnbox">The board could not be built: ' + esc(e.message) +
       ' &mdash; try "Back to sample" in the panel at the foot of the page.</div>';
@@ -986,12 +1037,73 @@ function render() {
 }
 
 /* ================================================================ events === */
-const KEYS = ["week", "pool", "entries", "lam", "doubles", "used", "pins", "grid", "own", "ratings"];
+const KEYS = ["week", "pool", "entries", "lam", "doubles", "used", "pins", "grid", "own", "ratings",
+              "pools", "pi"];
 const SKEY = "survivor.board.v1", SKEY_WAS = "attrition.board.v1"; // renamed; still reads the old key
 let DB = null, saveTimer = null;
 
-function snapshot() { const o = { ts: Date.now() }; for (const k of KEYS) o[k] = S[k]; return o; }
-function adopt(o) { if (!o || typeof o !== "object") return; for (const k of KEYS) if (o[k] !== undefined) S[k] = o[k]; S.ts = o.ts || 0; }
+function snapshot() { stash(); const o = { ts: Date.now() }; for (const k of KEYS) o[k] = S[k]; return o; }
+function adopt(o) {
+  if (!o || typeof o !== "object") return;
+  for (const k of KEYS) if (o[k] !== undefined) S[k] = o[k];
+  S.ts = o.ts || 0;
+  ensurePools();
+  loadPool(S.pi);
+}
+
+function renderPools() {
+  const box = $("#ptabs"); if (!box) return;
+  box.innerHTML = "";
+  S.pools.forEach((r, i) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "ptab" + (i === S.pi ? " on" : "");
+    b.dataset.pi = i;
+    b.title = i === S.pi ? "Rename this pool" : "Switch to " + r.name;
+    b.innerHTML = '<span class="nm"></span><span class="n"></span>' +
+      (S.pools.length > 1 ? '<span class="x" data-del="' + i + '" title="Remove this pool">&times;</span>' : "");
+    b.querySelector(".nm").textContent = r.name;
+    b.querySelector(".n").textContent = (r.pool || 0).toLocaleString() +
+      (r.used && r.used.length ? " \u00b7 " + r.used.length + " burned" : "");
+    box.appendChild(b);
+  });
+  const add = document.createElement("button");
+  add.type = "button"; add.className = "ptab ptab-add"; add.id = "ptab-add";
+  add.textContent = "+ pool";
+  add.title = "Another pool on the same schedule \u2014 its own size, its own burned teams";
+  box.appendChild(add);
+}
+
+$("#ptabs").addEventListener("click", e => {
+  const del = e.target.closest("[data-del]");
+  if (del) {
+    e.stopPropagation();
+    const i = +del.dataset.del;
+    const r = S.pools[i];
+    if (!confirm("Remove \u201c" + r.name + "\u201d? Its burned teams and pasted ownership go with it.")) return;
+    return apply(() => {
+      stash();
+      S.pools.splice(i, 1);
+      loadPool(Math.min(S.pi > i ? S.pi - 1 : S.pi, S.pools.length - 1));
+    });
+  }
+  if (e.target.closest("#ptab-add")) {
+    return apply(() => {
+      stash();
+      S.pools.push(blankPool("Pool " + (S.pools.length + 1)));
+      loadPool(S.pools.length - 1);
+    });
+  }
+  const tab = e.target.closest(".ptab[data-pi]");
+  if (!tab) return;
+  const i = +tab.dataset.pi;
+  if (i === S.pi) {                       // clicking the live one renames it
+    const name = prompt("Name this pool", S.pools[i].name);
+    if (name == null) return;
+    return apply(() => { S.pools[i].name = String(name).slice(0, 24).trim() || S.pools[i].name; });
+  }
+  apply(() => { stash(); loadPool(i); });
+});
 function persist() {
   try { localStorage.setItem(SKEY, JSON.stringify(snapshot())); } catch (e) { /* private mode: in-memory only */ }
   clearTimeout(saveTimer);
@@ -1154,6 +1266,8 @@ $("#btn-export").addEventListener("click", async () => {
 });
 $("#btn-clear").addEventListener("click", () => {
   if (!confirm("Clear burned teams, pins, and pool settings? Imported numbers stay loaded.")) return;
+  /* Clears the pool you are ON. The others keep their own burned teams, which is
+     the point of having them -- a season reset is not a "forget every pool". */
   apply(() => { S.week = 0; S.used = []; S.pins = []; S.lam = null; S.doubles = []; });
   msg("#save-msg", "Season cleared.", "");
 });
@@ -1193,7 +1307,10 @@ if (FIELD) {
     ". <b>Ownership is ESPN-wide, not your pool.</b> Those counters are taken over " +
     "every entry in ESPN&rsquo;s survivor game &mdash; tens of thousands &mdash; so they are " +
     "real measured picks but a proxy for what twenty-five people you know will do. " +
-    "Paste your own numbers over them whenever you have better.";
+    "They are used for <b>every pool tab</b>, including one on another platform, " +
+    "because a measured proxy beats a modelled one and no other platform publishes " +
+    "counts. Paste your own numbers over them whenever you have better \u2014 " +
+    "pasted ownership belongs to the pool it was pasted into.";
 }
 if (IS_REAL) {
   $("#provenance").innerHTML = "<b>Real slate loaded from season.js.</b> " + esc(SAMPLE.note || "") +
@@ -1210,6 +1327,8 @@ try {
    left, so the alive count is the honest default -- but never over a number you
    set yourself. */
 if (!hadSaved && FIELD && FIELD.group && FIELD.group.surviving) S.pool = FIELD.group.surviving;
+ensurePools();          /* after the FIELD default, or pool one is born at 500 */
+stash();
 render();
 
 (async () => {
