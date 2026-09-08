@@ -2,6 +2,7 @@ __pycache__/
 node_modules/
 package*.json
 season.json
+season.js
 artifact.html
 *.png
 preview.html

@@ -67,6 +67,61 @@ It is a slider, and it is labelled. **Nothing here is fitted to outcomes**: ther
 is no survivor result log to fit it on, and a constant chosen because it looked
 right is worse than a knob that admits what it is.
 
+## REAL DATA: `pull_season.py` WRITES `season.js`, AND THE PAGE PREFERS IT
+
+    python pull_season.py --dump 3      # what does the API actually return? writes nothing
+    python pull_season.py               # pull the season, fit ratings, write season.js
+    python pull_season.py --ratings my_ratings.csv
+
+`index.html` carries `<script src="season.js">` before its own script. Present, the
+board runs on it and the masthead stamp turns green and names the pull; absent (the
+published Artifact, a fresh clone) it 404s **silently** and the embedded sample is
+used. They are never merged — a half-real slate is the worst of both.
+
+**WHAT IS REAL AND WHAT IS MODELLED, BECAUSE THE DIFFERENCE IS THE WHOLE QUESTION.**
+
+| | |
+|---|---|
+| **real** | the schedule — every fixture, home and away, byes included |
+| **real** | the point spread on any game a book has actually posted a line for |
+| **modelled** | every win probability, without exception |
+
+A spread becomes a probability through a normal curve (σ 13.2); a week with no
+posted line is priced off team ratings **fitted by least squares to the spreads
+that do exist** (ridge λ=1, which also pins the otherwise-free additive constant).
+
+**NOBODY HAS REAL WIN PROBABILITIES FOR WEEK 15 IN SEPTEMBER, BECAUSE NONE EXIST.**
+Every product you can buy — PoolGenius included — is running this same kind of
+model over this same kind of ratings. So the tool does not pretend otherwise:
+`note` and `odds_games` ride inside `season.js` and the page prints them under the
+board, naming how many games were priced off a real line and stating that the rest
+are model output rather than a quoted price.
+
+**THE ENDPOINT IS UNVERIFIED AND THE MODULE SAYS SO IN ITS OWN DOCSTRING.** It was
+written in a sandbox with no outbound network — every domain, including the API,
+`pro-football-reference`, `nfl.com` and Wikipedia, answered `EGRESS_BLOCKED` — so
+the response shape is *expected*, not observed. Hence `--dump` leading the
+interface, and hence every failure naming what it SAW rather than asserting a
+cause. Same discipline as draftkit's `yahoo_rankings.py`, for the same reason: a
+confident wrong diagnosis sends you at a session that is fine.
+
+**IT REFUSES TO WRITE A BOARD OF THE WRONG SHAPE.** `verify()` demands **exactly**
+17 games per team. Two bugs found by testing it against a deliberately broken
+season, both worth keeping in mind:
+
+- **Allowing 16 as slack swallowed a season three fixtures short** — the precise
+  case the function exists to refuse. There is no slack: every team plays 17 and
+  takes one bye, so 16 is a missing fixture, not tolerance.
+- **A DOUBLED FIXTURE CANNOT BE SEEN IN THE COUNTS.** The second write lands on the
+  same `sched[team][week]` cell and overwrites the first, so the team still totals
+  17 while a real fixture has silently vanished. Only `build()` can notice, at the
+  moment it overwrites, so it collects clashes and hands them to `verify()`. The
+  `_clash` key is diagnostics and is stripped before `season.js` is written.
+
+On a failure it writes **nothing** and says so: the page stays on its labelled
+sample, which is the honest outcome, because a schedule three games short renders
+exactly like a complete one.
+
 ## THE SHIPPED SLATE IS SAMPLE DATA AND THE PAGE NEVER STOPS SAYING SO
 
 There is no real schedule in this repo and no published win-probability source, so

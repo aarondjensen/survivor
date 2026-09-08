@@ -29,6 +29,21 @@ slider, and it is a judgement rather than a fitted constant.
 Click a cell to pin a team to a week, a team name to burn it, a candidate row to
 lock it in and advance. Pool settings, burns and pins persist. CSV export.
 
+## Getting real numbers in
+
+```
+python pull_season.py --dump 3   # sanity-check what the API returns; writes nothing
+python pull_season.py            # writes season.js next to index.html
+```
+
+The page picks `season.js` up automatically and the masthead stamp turns green.
+The **schedule** and any **posted point spreads** are real; every win probability
+is modelled from them — a spread through a normal curve, an unlined week through
+ratings fitted to the spreads that do exist. Nobody has real win probabilities for
+week 15 in September; the page says which games were priced off a real line.
+
+If the pull fails verification it writes nothing and you stay on the sample.
+
 ## The numbers on it are a sample until you import your own
 
 The shipped slate is **synthetic** — a round-robin over the 32 real teams priced off
@@ -44,6 +59,7 @@ pool's own projected ownership in the panel at the foot of the page.
 | | |
 |---|---|
 | `index.html` | the whole tool, and the source of truth |
+| `pull_season.py` | pulls the real schedule + market spreads, writes `season.js` |
 | `build_artifact.py` | emits the shell-less fragment for publishing as an Artifact |
 | `make_sample_season.py` | regenerates the synthetic sample slate |
 | `CLAUDE.md` | why it is built this way, and the traps already hit |
