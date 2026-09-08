@@ -526,6 +526,13 @@ week should not need a 76-character URL retyped from a browser tab each time.
 A bare `python pull_field.py` used to fail on a default group page carrying no
 `?id=`, which is a default that cannot ever work.
 
+**AND ONE PLATFORM'S DEFAULT IS NEVER HANDED TO THE OTHER.** The first cut fell
+through to `ESPN_DEFAULT` for both keys, so `--platform splash` with nothing
+remembered answered *"No group id in https://fantasy.espn.com/..."* — an ESPN
+error, naming an ESPN url, for a Splash command, sending you at the wrong pool's
+address bar. There is no Splash default and `resolve_url` returns `None`, which
+the caller turns into a refusal naming the Splash url and the one-time command.
+
 **IT REMEMBERS ONLY A RUN THAT WORKED.** `remember()` is called after the write,
 never before: remembering a url that just failed is how a typo becomes the
 default and every later run fails the same way for a reason that has scrolled off.

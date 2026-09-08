@@ -916,8 +916,17 @@ def resolve_url(flag, positional, memo=None, key="group_url"):
     THE DEFAULT LIVES HERE AND NOT ON THE FLAG. With `default=ESPN_DEFAULT` on
     --url the flag is never falsy, so a Splash URL typed bare would be overruled
     by a default nobody asked for -- and it would walk the ESPN pool while the
-    command on screen names a Splash contest."""
-    return flag or positional or (memo or {}).get(key) or ESPN_DEFAULT
+    command on screen names a Splash contest.
+
+    AND THERE IS NO SPLASH DEFAULT, so `None` comes back rather than ESPN's page.
+    Falling through produced the worst kind of error: `--platform splash` with
+    nothing remembered complained "No group id in https://fantasy.espn.com/..."
+    -- an ESPN message, naming an ESPN url, for a Splash command, sending you at
+    the wrong pool's address bar. A default that belongs to one platform must
+    never be handed to another."""
+    known = flag or positional or (memo or {}).get(key)
+    if known: return known
+    return ESPN_DEFAULT if key == "group_url" else None
 
 
 def main():
@@ -974,6 +983,13 @@ def main():
     a.url = resolve_url(a.url, a.url_pos, memo,
                         "splash_url" if a.platform == "splash" else "group_url")
     a.env = a.env or memo.get("env")
+    if a.url is None:
+        raise SystemExit(
+            "No Splash contest url, and none remembered from a previous run.\n\n"
+            "  Pass the one from your browser's address bar once and it is kept:\n"
+            "      python pull_field.py --platform splash \\\n"
+            "        \"https://app.splashsports.com/contest/<id>/picks?...\"\n\n"
+            "  After that `python pull_field.py --platform splash` is enough.")
     if not typed and a.url != ESPN_DEFAULT:
         print(f"(no url given, so: the {a.platform} one from your last successful run. "
               f"Pass one to change it.)", file=sys.stderr)

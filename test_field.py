@@ -241,3 +241,13 @@ def test_remember_writes_only_what_it_is_given_and_never_a_secret(tmp_path, monk
 
 
 import json  # noqa: E402  (used by the test above)
+
+
+def test_one_platforms_default_is_never_handed_to_the_other():
+    # The bug: --platform splash with nothing remembered fell through to the
+    # ESPN page and then complained "No group id in https://fantasy.espn.com/..."
+    # -- an ESPN error, naming an ESPN url, for a Splash command.
+    assert F.resolve_url(None, None, {}, "splash_url") is None
+    assert F.resolve_url(None, None, {"group_url": "https://espn.example/g"},
+                         "splash_url") is None
+    assert F.resolve_url(None, None, {}, "group_url") == F.ESPN_DEFAULT
