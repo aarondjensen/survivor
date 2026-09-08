@@ -13,3 +13,4 @@ probe/
 .browser/
 *.har
 splash.js
+.survivor.json

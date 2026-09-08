@@ -70,6 +70,11 @@ the win probabilities did not already carry, and the leverage half is then corre
 arithmetic over invented input. `pull_field.py` is the fix: it reads your ESPN pool
 for who is still alive and which teams they have already spent.
 
+**The weekly ritual is three bare commands** — `python pull_season.py`, `python
+pull_field.py`, `python pull_field.py --platform splash`. After the first successful
+run none of them needs an argument; the urls and the path to your `.env` are remembered
+in a gitignored `.survivor.json` (the path, never the credentials).
+
 **Adding a pool is a pull, not typing.** `python pull_field.py --platform splash <contest url>`
 writes `splash.js` and a tab appears, named and sized from the contest — its own file,
 because two pullers writing one would mean whichever ran last wins.

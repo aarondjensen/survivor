@@ -513,6 +513,33 @@ everything else on a record is carried by the switch.
 falls through to ESPN's measured counters as a proxy — stated on the page, never
 silently.
 
+## THE WEEKLY RITUAL IS THREE BARE COMMANDS, BECAUSE IT IS WEEKLY
+
+    python pull_season.py            # lines, refitted
+    python pull_field.py             # the ESPN pool
+    python pull_field.py --platform splash
+
+None of them takes an argument after the first successful run. `.survivor.json`
+(gitignored) holds the group url, the splash url and the path to the `.env`, and
+`recall()` supplies whatever was not typed — a run that is going to happen every
+week should not need a 76-character URL retyped from a browser tab each time.
+A bare `python pull_field.py` used to fail on a default group page carrying no
+`?id=`, which is a default that cannot ever work.
+
+**IT REMEMBERS ONLY A RUN THAT WORKED.** `remember()` is called after the write,
+never before: remembering a url that just failed is how a typo becomes the
+default and every later run fails the same way for a reason that has scrolled off.
+
+**THE PATH TO THE `.env` IS REMEMBERED; THE CREDENTIALS ARE NOT.** A path is not
+a secret, and the file it points at stays the single copy — which is the whole
+argument for `--env` over ever copying the ESPN cookies into this repo. Pinned by
+a test that greps the written file for both cookie names.
+
+**THE MEMO IS PER PLATFORM.** One key for both would hand the ESPN url to a
+Splash run and walk the wrong pool while the command on screen names the other
+one — the same shape as every other confident wrong answer here. A typed url
+always wins, and an empty string never overwrites a good one.
+
 ## THE LINES MOVE EVERY WEEK AND NOTHING HERE PULLS THEMSELVES
 
 `pull_season.py` re-fits ratings from whatever is posted the moment you run it,

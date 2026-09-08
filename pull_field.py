@@ -879,17 +879,45 @@ def from_har(path: pathlib.Path, site: str | None = None):
     print("Names are redacted. Paste the shapes -- never the HAR: it holds your cookies.")
 
 
+# ---------------------------------------------------------------------------
+# WHAT YOU TYPED LAST TIME. This is a WEEKLY command -- lines move, ownership
+# moves, the pool shrinks -- and it took a 76-character URL, a --platform and a
+# path to a credentials file, none of which change from week to week. A bare run
+# failed on a default group URL carrying no id, which is a default that cannot
+# ever work.
+#
+# THE PATH TO THE .env IS REMEMBERED; THE CREDENTIALS ARE NOT. A path is not a
+# secret, and the file it points at stays the one copy -- which is the whole
+# argument for --env over copying the cookies here in the first place.
+# ---------------------------------------------------------------------------
+MEMO = HERE / ".survivor.json"
+
+
+def recall() -> dict:
+    try: return json.loads(MEMO.read_text(encoding="utf-8"))
+    except Exception: return {}
+
+
+def remember(**kw):
+    """Only ever on a run that WORKED. Remembering a url that just failed is how
+    a typo becomes the default and every later run fails the same way."""
+    d = recall()
+    d.update({k: v for k, v in kw.items() if v})
+    try: MEMO.write_text(json.dumps(d, indent=1), encoding="utf-8")
+    except Exception: pass          # read-only checkout: not worth failing a pull
+
+
 ESPN_DEFAULT = f"https://fantasy.espn.com/games/{GAME}/group"
 
 
-def resolve_url(flag, positional):
-    """--url, else a bare URL, else the ESPN pool page.
+def resolve_url(flag, positional, memo=None, key="group_url"):
+    """--url, else a bare URL, else what worked last time, else the ESPN page.
 
     THE DEFAULT LIVES HERE AND NOT ON THE FLAG. With `default=ESPN_DEFAULT` on
     --url the flag is never falsy, so a Splash URL typed bare would be overruled
     by a default nobody asked for -- and it would walk the ESPN pool while the
     command on screen names a Splash contest."""
-    return flag or positional or ESPN_DEFAULT
+    return flag or positional or (memo or {}).get(key) or ESPN_DEFAULT
 
 
 def main():
@@ -941,7 +969,14 @@ def main():
                          "week locking actually added. No values are read, so it can be pasted")
     ap.add_argument("--dump", metavar="URL", help="fetch one endpoint and describe the response")
     a = ap.parse_args()
-    a.url = resolve_url(a.url, a.url_pos)
+    memo = recall()
+    typed = a.url or a.url_pos
+    a.url = resolve_url(a.url, a.url_pos, memo,
+                        "splash_url" if a.platform == "splash" else "group_url")
+    a.env = a.env or memo.get("env")
+    if not typed and a.url != ESPN_DEFAULT:
+        print(f"(no url given, so: the {a.platform} one from your last successful run. "
+              f"Pass one to change it.)", file=sys.stderr)
 
     if a.discover:
         return discover(a.url, a.env, skip_creds=a.no_creds, hold=not a.no_hold)
@@ -970,8 +1005,10 @@ def main():
         return inspect(d)
 
     if a.platform == "splash" and not (a.probe or a.discover or a.har or a.inspect or a.dump):
-        return write_splash(splash_ids(a.url), a.splash_out,
-                            token=splash_token(a.env), force=a.force)
+        write_splash(splash_ids(a.url), a.splash_out,
+                     token=splash_token(a.env), force=a.force)
+        remember(splash_url=a.url, env=a.env)
+        return
 
     if a.probe:
         if a.platform == "splash":
@@ -1148,6 +1185,7 @@ def main():
           f"pool {out['group']['surviving']}/{out['group']['size']} alive, "
           f"{len(mine)} of your own pick(s).")
     print("Open index.html -- ownership now comes from ESPN's counters, not the softmax.")
+    remember(group_url=a.url, env=a.env)
     return
 
     raise SystemExit(

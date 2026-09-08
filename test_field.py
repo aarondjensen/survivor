@@ -203,3 +203,41 @@ def test_no_picks_yet_is_empty_not_an_error():
     # Week 1 before lock: this is the normal state, not a failure.
     assert F.decode_picks({"picks": []}, PROP) == ([], [])
     assert F.decode_picks({}, PROP) == ([], [])
+
+
+# --- what you typed last time ------------------------------------------------
+def test_a_typed_url_always_beats_the_memo():
+    memo = {"group_url": "https://old.example/?id=" + "a" * 8}
+    assert F.resolve_url(None, PICKS, memo) == PICKS
+    assert F.resolve_url(PICKS, None, memo) == PICKS
+
+
+def test_the_memo_is_per_platform():
+    # One key for both would hand the ESPN url to a splash run and walk the
+    # wrong pool while the command on screen names the other one.
+    memo = {"group_url": "https://espn.example/g", "splash_url": PICKS}
+    assert F.resolve_url(None, None, memo, "group_url") == "https://espn.example/g"
+    assert F.resolve_url(None, None, memo, "splash_url") == PICKS
+
+
+def test_an_empty_memo_falls_through_to_the_espn_default():
+    assert F.resolve_url(None, None, {}) == F.ESPN_DEFAULT
+    assert F.resolve_url(None, None, {"group_url": ""}) == F.ESPN_DEFAULT
+
+
+def test_remember_writes_only_what_it_is_given_and_never_a_secret(tmp_path, monkeypatch):
+    monkeypatch.setattr(F, "MEMO", tmp_path / ".survivor.json")
+    F.remember(group_url="https://a.example/g", env="C:\\dev\\draftkit\\.env")
+    F.remember(splash_url=PICKS)                 # merges, does not replace
+    got = F.recall()
+    assert got["group_url"] == "https://a.example/g"
+    assert got["splash_url"] == PICKS
+    # A PATH is remembered; the cookies it points at are not, which is the whole
+    # argument for --env over copying credentials into this repo.
+    assert got["env"].endswith(".env")
+    assert "ESPN_S2" not in json.dumps(got) and "SWID" not in json.dumps(got)
+    F.remember(group_url="")                     # empty never overwrites a good one
+    assert F.recall()["group_url"] == "https://a.example/g"
+
+
+import json  # noqa: E402  (used by the test above)
