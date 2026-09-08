@@ -358,6 +358,39 @@ an Intercom `user_hash`, a Braze key, a Segment write key, an email address and 
 wallet balance. It is read locally, only SHAPES are printed, `*.har` is gitignored —
 and a HAR is never pasted anywhere, including into a chat.
 
+**AND THE CONTEST ENDPOINTS NEED NO CREDENTIAL AT ALL.** Measured: all four
+returned **HTTP 200 with no cookie and no location token**. The header is on the
+browser's calls because the browser has one, not because the resource requires it.
+So `SPLASH_LOCATION_TOKEN` stays supported and stays optional, and the probe says
+`ABSENT` rather than refusing — a refusal in advance would have hidden the finding.
+
+**WHAT THE `entryId` BUYS IS THE PART THAT IS NOT PUBLIC.** Anonymous,
+`picksheets_mine` came back **10,765 bytes against the signed-in capture's
+12,365**, and its extra keys over the slate view are only `hasAutoPicks`,
+`hasBuyBacks`, `livesRemaining`, `userId`, `username` — no picks, on the response,
+on `games[]`, or on a team. `canMakePicks` is `false` where the browser had `true`.
+So the picks are real and they are behind the session; the public view is the
+slate plus your entry's metadata.
+
+**THE CONTEST STATES THE RULES THIS BOARD ASSUMES, SO THEY ARE CHECKED RATHER
+THAN ASSUMED.** `pickReuseLimit: 0` IS "each team at most once", `entryLives: 1`,
+`expectedPicksCount: 1`, `slateCount: 18`. That is the assignment problem the
+solver models, stated by the contest itself — and `splash_inspect` prints a
+`<-- NOT 0` beside any of them that disagrees, because a contest with two lives
+or a reuse allowance is a **different game** and the board would go on rendering
+perfectly while modelling something else.
+
+**112 ENTRIES OF A 1,000 CAP, 10 PER USER, $50 IN, $43,750 UP.** The entries
+number is `entries.filled` and it is what a pool tab's size field wants — and it
+is a **cap-and-fill** contest, so it moves until the deadline. Read again on the
+morning of the draft rather than typed once.
+
+**THE TEAM IDS ARE SPLASH'S OWN UUIDs AND THE JOIN IS ON `alias`.** 32 teams,
+32 joining our board, 0 unmatched. `splash_inspect` reports that count every run,
+because an unmatched code joins to nothing, that team silently drops out, and
+every remaining number still looks like a number — the Michael Carter rule, one
+platform over.
+
 ## ONE SCHEDULE, SEVERAL POOLS
 
 A 25-man ESPN pool and a large-field Splash contest are the same eighteen weeks and

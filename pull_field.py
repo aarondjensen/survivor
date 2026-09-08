@@ -540,6 +540,75 @@ def detail(node, depth=0, path="$", maxdepth=4, redact=True):
         print(f"{pad}{path} = {v[:90]}")
 
 
+def splash_inspect(d: pathlib.Path):
+    """Read what --probe --platform splash saved and print the parts a parser
+    keys on -- plus the two things only a comparison can answer: whether the
+    team ids join to our board, and what signing in actually buys."""
+    load = lambda n: json.loads((d / f"splash_{n}.json").read_text(encoding="utf-8"))
+    try:
+        con, sl, ps_all = load("contest"), load("slates"), load("picksheets")
+    except FileNotFoundError as e:
+        raise SystemExit(f"{e.filename} not there. "
+                         f"Run --platform splash --probe --save {d} first.")
+    try: mine = load("picksheets_mine")
+    except FileNotFoundError: mine = None
+
+    c = con.get("contest") or con
+    st = c.get("settings") or {}
+    ent = c.get("entries") or {}
+    print("=" * 72, "\nCONTEST -- the numbers a pool tab is made of")
+    for k, v in (("entries filled", ent.get("filled")), ("cap", ent.get("max")),
+                 ("max per user", ent.get("max_per_user")),
+                 ("entry fee $", c.get("entry_fee_in_dollars")),
+                 ("prize pool $", c.get("prize_pool_in_dollars")),
+                 ("weeks (slateCount)", c.get("slateCount")),
+                 ("status", c.get("status")), ("starts", c.get("contest_start_date"))):
+        print(f"  {k:<20} {v!r}")
+    print("  RULES THE OPTIMIZER ASSUMES, as this contest states them:")
+    for k, want in (("pickReuseLimit", 0), ("entryLives", 1), ("expectedPicksCount", 1)):
+        got = st.get(k)
+        flag = "" if got == want else f"   <-- NOT {want}: the board's model does not describe this contest"
+        print(f"    {k:<20} {got!r}{flag}")
+
+    print("=" * 72, "\nSLATES -- the week map, and when each one locks")
+    rows = (sl.get("data") if isinstance(sl, dict) else sl) or []
+    for i, r in enumerate(rows[:20], 1):
+        print(f"  {i:>2}. {str(r.get('abbreviation') or r.get('name'))[:12]:<12} "
+              f"games {str(r.get('gamesCount')):>2}  locks {r.get('picksLockAt')}  "
+              f"{r.get('status')}  picksheet={r.get('isPicksheetAvailable')}")
+
+    print("=" * 72, "\nTEAMS -- do Splash's ids join to our board?")
+    teams = ps_all.get("teams") or {}
+    hit, miss = [], []
+    for tid, t in teams.items():
+        a = ps.norm(t.get("alias"))
+        (hit if a in ps.IDX else miss).append(a or tid)
+    print(f"  {len(teams)} teams, {len(hit)} join our 32, {len(miss)} do not")
+    if miss:
+        print(f"  ! unmatched: {sorted(miss)} -- add to pull_season.ALIAS before "
+              "anything keys on these")
+    g = (ps_all.get("games") or [{}])[0]
+    print("\n  one game, in full (this is where a pick would be marked):")
+    detail(g, 1, "games[0]", maxdepth=4)
+
+    if mine is None:
+        print("\n  (no picksheets_mine saved -- nothing to compare)")
+        return
+    print("=" * 72, "\nWHAT THE entryId BUYS")
+    a, b = set(ps_all), set(mine)
+    print(f"  keys only on the entry view: {sorted(b - a)}")
+    print(f"  keys only on the slate view: {sorted(a - b)}")
+    gm = (mine.get("games") or [{}])[0]
+    extra = set(gm) - set(g)
+    print(f"  extra keys on games[0]: {sorted(extra) or 'none'}")
+    tm = (list((mine.get('teams') or {}).values()) or [{}])[0]
+    t0 = (list(teams.values()) or [{}])[0]
+    print(f"  extra keys on a team:   {sorted(set(tm) - set(t0)) or 'none'}")
+    print("\n  A PICK HAS TO BE SOMEWHERE. If those three lines are empty, this "
+          "response\n  carries none -- which is the answer, and it means reading "
+          "your own picks\n  needs the session the browser had.")
+
+
 def inspect(d: pathlib.Path):
     """Read what --probe saved and print the parts the parser has to key on."""
     load = lambda n: json.loads((d / f"{n}.json").read_text(encoding="utf-8"))
@@ -702,7 +771,15 @@ def main():
         return from_har(pathlib.Path(a.har), registrable(a.url) if a.url else None)
 
     if a.inspect:
-        return inspect(pathlib.Path(a.inspect))
+        d = pathlib.Path(a.inspect)
+        # Routed on the FILES, not on --platform: the flag says what you are
+        # pulling and this reads what is already on disk, so obeying it would
+        # refuse a directory that plainly holds the other platform's probe.
+        if (d / "splash_contest.json").exists() and not (d / "group.json").exists():
+            return splash_inspect(d)
+        if a.platform == "splash":
+            return splash_inspect(d)
+        return inspect(d)
 
     if a.probe:
         if a.platform == "splash":

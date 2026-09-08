@@ -101,3 +101,49 @@ def test_a_bare_url_is_not_overruled_by_the_espn_default():
     assert F.resolve_url(PICKS, None) == PICKS
     assert F.resolve_url("https://flag.example", PICKS) == "https://flag.example"
     assert F.resolve_url(None, None) == F.ESPN_DEFAULT
+
+
+def _splash_fixture(d, alias_of_first="ARI", reuse=0):
+    import json
+    ab = ["ARI", "ATL", "BAL", "BUF"]
+    ab[0] = alias_of_first
+    teams = {f"id{i}": {"alias": a, "id": f"id{i}", "name": a} for i, a in enumerate(ab)}
+    game = {"awayTeam": {"id": "id0"}, "homeTeam": {"id": "id1"}, "id": "g1",
+            "isGameSelectable": True, "startDate": "2026-09-14T17:00:00Z", "status": "SCHEDULED"}
+    (d / "splash_contest.json").write_text(json.dumps({"contest": {
+        "entries": {"filled": 112, "max": 1000, "max_per_user": 10},
+        "slateCount": 18, "status": "SCHEDULED",
+        "settings": {"pickReuseLimit": reuse, "entryLives": 1, "expectedPicksCount": 1}}}))
+    (d / "splash_slates.json").write_text(json.dumps({"data": [
+        {"abbreviation": "WK1", "gamesCount": 16, "status": "SCHEDULED"}]}))
+    (d / "splash_picksheets.json").write_text(json.dumps({"games": [game], "teams": teams}))
+    (d / "splash_picksheets_mine.json").write_text(json.dumps(
+        {"games": [game], "teams": teams, "userId": "u1", "livesRemaining": 1}))
+
+
+def test_inspect_routes_on_the_files_not_the_flag(tmp_path, capsys):
+    # --platform says what you are PULLING; --inspect reads what is on disk, so
+    # obeying the flag would refuse a directory plainly holding a splash probe.
+    _splash_fixture(tmp_path)
+    F.splash_inspect(tmp_path)
+    out = capsys.readouterr().out
+    assert "entries filled       112" in out
+    assert "4 teams, 4 join our 32, 0 do not" in out
+
+
+def test_a_team_code_that_does_not_join_is_named(tmp_path, capsys):
+    # A wrong alias is the silent one: it joins to nothing, that team drops out,
+    # and every remaining number still looks like a number.
+    _splash_fixture(tmp_path, alias_of_first="ZZZ")
+    F.splash_inspect(tmp_path)
+    out = capsys.readouterr().out
+    assert "3 join our 32, 1 do not" in out and "ZZZ" in out
+
+
+def test_a_contest_that_is_not_this_game_says_so(tmp_path, capsys):
+    # pickReuseLimit 0 IS "each team once". Anything else is a different game
+    # and the board's whole assignment model stops describing it.
+    _splash_fixture(tmp_path, reuse=2)
+    F.splash_inspect(tmp_path)
+    out = capsys.readouterr().out
+    assert "does not describe this contest" in out
