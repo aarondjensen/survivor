@@ -165,6 +165,28 @@ paste box overrides it. Precedence is **pasted > ESPN > model**, and `ownSource(
 reports which is live, because a modelled week and a measured one render
 identically.
 
+**THE FIELD SIZE IS PER WEEK, NOT ONE NUMBER, AND THAT CHANGES WHAT LATER WEEKS
+MEAN.** `count / percentage` recovers whatever field a week is counted against,
+and on the real 2026 pull it decays monotonically: **648,391** in week 1, 70,561
+in week 2, settling near **43,242** by week 18. No single game-wide entry count
+can do that. The `percentage` reading is sound — every week sums to **1.000**
+across the right number of teams, and within a week `count/percentage` agrees to
+a fraction of a percent across teams. What varies is the DENOMINATOR: entries
+that have made a pick *for that week*.
+
+So **week 1's ownership is measured over the whole field, and week 18's over the
+~43k who pre-picked that far ahead** — a self-selected minority of early
+planners, not the room that will actually be alive in December. Still real
+measured behaviour and still far better than a curve fitted to nothing, but the
+later the week the thinner and more self-selected the sample, and the panel
+prints the per-week figure so that is visible rather than assumed.
+
+`counter_spread()` is the guard that separates those two readings: it checks
+count/percentage agreement WITHIN each week and warns past 2%. Agreement inside a
+week is what says `percentage` really is `count / that week's total`; if the two
+fields ever start answering different questions, the shares stop meaning what the
+leverage model consumes them as.
+
 **KEY ON `scoringPeriodId`, NEVER THE ARRAY INDEX.** Measured: `propositions[0]`
 came back as a **December** week carrying **28** outcomes (four teams on bye).
 Index-as-week would have filed December's ownership under week 1 and every number

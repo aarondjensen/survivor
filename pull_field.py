@@ -267,9 +267,19 @@ def check_ownership(by_week, counts):
 
 
 def implied_field(by_week, counts):
-    """count / percentage recovers the size of the field being counted. It is a
-    cross-check on the reading AND the number that says out loud these are
-    ESPN-wide picks, not your pool's."""
+    """count / percentage recovers the size of whatever field is being counted.
+
+    IT IS NOT ONE NUMBER, AND THAT IS A FINDING RATHER THAN AN ERROR. Measured on
+    the real 2026 pull it decays monotonically -- 648k in week 1, 70k in week 2,
+    then settling near 43k by week 18. A single game-wide entry count could not do
+    that. The reading of `percentage` is fine (every week sums to 1.000 across the
+    right number of teams); what varies is the DENOMINATOR ESPN counts against,
+    which is entries that have made a pick for that week. Week 1 is inflated
+    because far more people have touched a week-1 pick than a week-18 one.
+
+    So it is reported PER WEEK and never averaged into one figure, and the totals
+    are what the page shows -- shares, which are what the leverage model consumes
+    and which are unaffected by any of this."""
     out = {}
     for wk in by_week:
         est = [c / by_week[wk][t] for t, c in counts[wk].items()
@@ -278,6 +288,22 @@ def implied_field(by_week, counts):
             est.sort()
             out[wk] = int(est[len(est) // 2])
     return out
+
+
+def counter_spread(by_week, counts):
+    """Within one week, count/percentage must agree across teams -- that is what
+    says `percentage` really is `count / (that week's total)`. Disagreement inside
+    a week would mean the two fields answer different questions and the shares
+    could not be trusted. Returns (week, min, max, spread) worst-first."""
+    rows = []
+    for wk in sorted(by_week):
+        est = [c / by_week[wk][t] for t, c in counts[wk].items()
+               if by_week[wk].get(t, 0) > 0.005 and c]
+        if len(est) > 2:
+            lo, hi = min(est), max(est)
+            rows.append((wk, int(lo), int(hi), (hi - lo) / hi))
+    rows.sort(key=lambda r: -r[3])
+    return rows
 
 NAMEISH = re.compile(r"name|display|first|last|nick|email|avatar|logo", re.I)
 
@@ -456,6 +482,17 @@ def main():
         print(f"{wk:>4}  {len(sh):>5}  {sum(sh.values()):>5.3f}   "
               + ", ".join(f"{t} {v*100:.1f}%" for t, v in top).ljust(34)
               + f"  {implied.get(wk, 0):,}")
+
+    spread = counter_spread(by_week, counts)
+    if spread:
+        wk, lo, hi, rel = spread[0]
+        print(f"\ncounter agreement: worst week is {wk}, count/percentage implies "
+              f"{lo:,}-{hi:,} ({rel*100:.1f}% spread)")
+        if rel > 0.02:
+            print("  ! Within one week the two fields disagree about the size of the field\n"
+                  "  ! they are counting. `percentage` may not be `count / total`, and the\n"
+                  "  ! shares are what everything downstream runs on. Worth a look before\n"
+                  "  ! trusting the board.", file=sys.stderr)
 
     problems = check_ownership(by_week, counts)
     if problems:
