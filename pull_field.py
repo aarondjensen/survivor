@@ -35,7 +35,14 @@ records the calls the page makes. That is the endpoint, observed rather than
 assumed. Until one has been observed this script REFUSES to write anything.
 """
 from __future__ import annotations
-import argparse, json, os, pathlib, re, sys, urllib.parse, urllib.request, urllib.error
+import argparse, importlib.util, json, os, pathlib, re, sys, urllib.parse, urllib.request, urllib.error
+
+WEEKS = 18
+# The team table and its alias map live in pull_season.py. Importing beats a
+# second copy: two spellings of "which code is Washington" is how a pull lands
+# a team's ownership on nobody.
+_spec = importlib.util.spec_from_file_location("_ps", pathlib.Path(__file__).with_name("pull_season.py"))
+ps = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(ps)
 
 HERE = pathlib.Path(__file__).resolve().parent
 GAME = "nfl-survivor-2026"
@@ -199,6 +206,79 @@ def discover(url: str, env_path=None):
     print("\nNext: python pull_field.py --dump \"<the one that looks like entries or picks>\"")
 
 
+
+# --------------------------------------------------------------- the parse ---
+# Shapes below are OBSERVED (probe + inspect, 2026-09-08), not assumed:
+#   propositions[]            .scoringPeriodId  -> week   *** NOT the array index ***
+#                             .possibleOutcomes[] .abbrev -> team
+#                                                 .choiceCounters[] .count/.percentage
+#   group .size, .entryStats.overallEntryCountStats {SURVIVING, ELIMINATED, TOTAL}
+#         .entryStats.entryCountStatsByScoringPeriod{week}{...}
+#
+# THE ARRAY IS NOT IN WEEK ORDER. propositions[0] came back as a DECEMBER week
+# carrying 28 outcomes (four teams on bye), so index-as-week would have silently
+# filed December's ownership under week 1 and every number after it would still
+# have looked like a number.
+
+def parse_ownership(prop):
+    """{week: {TEAM: share}} from ESPN's own pick counters, plus what they imply."""
+    by_week, counts = {}, {}
+    unknown = set()
+    for p in prop:
+        wk = p.get("scoringPeriodId")
+        if not isinstance(wk, int) or not 1 <= wk <= WEEKS:
+            continue
+        share, cnt = {}, {}
+        for o in p.get("possibleOutcomes") or []:
+            if o.get("type") != "COMPETITOR":
+                continue
+            ab = ps.norm(o.get("abbrev"))
+            if ab not in ps.IDX:
+                unknown.add(o.get("abbrev") or "?"); continue
+            cc = (o.get("choiceCounters") or [{}])[0]
+            pctv, c = cc.get("percentage"), cc.get("count")
+            if pctv is None and c is None:
+                continue
+            share[ab] = float(pctv or 0.0)
+            cnt[ab] = int(c or 0)
+        if share:
+            by_week[wk], counts[wk] = share, cnt
+    if unknown:
+        print(f"  ! unrecognised team codes {sorted(unknown)} -- add them to pull_season.ALIAS",
+              file=sys.stderr)
+    return by_week, counts
+
+
+def check_ownership(by_week, counts):
+    """A share table that does not sum to 1 is not a share table. Refuse rather
+    than normalise: if these are not what we think they are, normalising makes a
+    wrong reading look like a right one."""
+    problems = []
+    for wk in sorted(by_week):
+        tot = sum(by_week[wk].values())
+        n = len(by_week[wk])
+        if tot < 0.001:
+            problems.append(f"week {wk}: every share is zero across {n} teams -- no picks counted yet")
+        elif not 0.90 <= tot <= 1.10:
+            problems.append(f"week {wk}: shares sum to {tot:.3f}, not ~1.00, over {n} teams")
+        if n < 20:
+            problems.append(f"week {wk}: only {n} teams offered (expect 28-32)")
+    return problems
+
+
+def implied_field(by_week, counts):
+    """count / percentage recovers the size of the field being counted. It is a
+    cross-check on the reading AND the number that says out loud these are
+    ESPN-wide picks, not your pool's."""
+    out = {}
+    for wk in by_week:
+        est = [c / by_week[wk][t] for t, c in counts[wk].items()
+               if by_week[wk].get(t, 0) > 0.005 and c]
+        if est:
+            est.sort()
+            out[wk] = int(est[len(est) // 2])
+    return out
+
 NAMEISH = re.compile(r"name|display|first|last|nick|email|avatar|logo", re.I)
 
 
@@ -289,6 +369,9 @@ def main():
                     help="fetch every OBSERVED endpoint and describe each response")
     ap.add_argument("--save", metavar="DIR",
                     help="with --probe, also write each raw response there")
+    ap.add_argument("--out", default="field.js")
+    ap.add_argument("--force", action="store_true",
+                    help="write even if the ownership table fails verification")
     ap.add_argument("--inspect", metavar="DIR",
                     help="read what --probe --save wrote and print the parts a parser keys on")
     ap.add_argument("--dump", metavar="URL", help="fetch one endpoint and describe the response")
@@ -340,6 +423,72 @@ def main():
         except json.JSONDecodeError:
             print("Not JSON. First 400 characters:\n" + body[:400])
         return
+
+    gid = group_id(a.url)
+    c = creds(a.env)
+    urls = endpoints(gid)
+    print("propositions ...", end=" ", flush=True)
+    st, body = fetch(urls["propositions"], c)
+    if st != 200:
+        raise SystemExit(f"HTTP {st} on propositions. {body[:300]}")
+    prop = json.loads(body)
+    by_week, counts = parse_ownership(prop)
+    print(f"{len(prop)} propositions -> ownership for {len(by_week)} week(s)")
+
+    print("group ...", end=" ", flush=True)
+    st, body = fetch(urls["group"], c)
+    grp = json.loads(body) if st == 200 else {}
+    stats = (grp.get("entryStats") or {}).get("overallEntryCountStats") or {}
+    print(f"size {grp.get('size')}, surviving {stats.get('SURVIVING')}, "
+          f"eliminated {stats.get('ELIMINATED')}")
+
+    print("challenge ...", end=" ", flush=True)
+    st, body = fetch(urls["challenge"], c)
+    ch = json.loads(body) if st == 200 else {}
+    cur = ch.get("currentScoringPeriod") or {}
+    print(f"{cur.get('label')} (locked: {cur.get('allPropositionsLocked')})")
+
+    implied = implied_field(by_week, counts)
+    print("\nweek  teams   sum    top three                          implied field")
+    for wk in sorted(by_week):
+        sh = by_week[wk]
+        top = sorted(sh.items(), key=lambda kv: -kv[1])[:3]
+        print(f"{wk:>4}  {len(sh):>5}  {sum(sh.values()):>5.3f}   "
+              + ", ".join(f"{t} {v*100:.1f}%" for t, v in top).ljust(34)
+              + f"  {implied.get(wk, 0):,}")
+
+    problems = check_ownership(by_week, counts)
+    if problems:
+        print("\nVERIFICATION FAILED:", file=sys.stderr)
+        for p in problems[:12]: print("  - " + p, file=sys.stderr)
+        if not a.force:
+            raise SystemExit("\nNothing written. A share table that does not sum to 1 is not a share\n"
+                             "table, and normalising it would make a wrong reading look like a right\n"
+                             "one. Pass --force if you know why and want it anyway.")
+        print("  (--force: writing anyway)", file=sys.stderr)
+
+    out = {
+        "source": f"ESPN gambit challenge {CHALLENGE} ({GAME})",
+        "pulled_at": __import__("datetime").datetime.now(
+            __import__("datetime").timezone.utc).isoformat(timespec="seconds"),
+        "week": cur.get("id"), "week_label": cur.get("label"),
+        "locked": bool(cur.get("allPropositionsLocked")),
+        "group": {"size": grp.get("size"), "surviving": stats.get("SURVIVING"),
+                  "eliminated": stats.get("ELIMINATED"), "total": stats.get("TOTAL")},
+        # ESPN-WIDE, not your group. The implied field says so in numbers: your
+        # pool is 25 and this is counted over tens of thousands.
+        "scope": "espn-wide",
+        "implied_field": implied,
+        "ownership": {str(k): v for k, v in by_week.items()},
+    }
+    p = pathlib.Path(a.out)
+    p.write_text("/* Generated by pull_field.py -- do not edit by hand. */\n"
+                 "window.FIELD = " + json.dumps(out, separators=(",", ":")) + ";\n",
+                 encoding="utf-8")
+    print(f"\nwrote {p}: ownership for {len(by_week)} week(s), "
+          f"pool {out['group']['surviving']}/{out['group']['size']} alive.")
+    print("Open index.html -- ownership now comes from ESPN's counters, not the softmax.")
+    return
 
     raise SystemExit(
         "Nothing to write yet, and that is deliberate.\n\n"

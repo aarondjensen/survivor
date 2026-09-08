@@ -366,6 +366,7 @@ BUF, 74, 61, ...
         </div>
         <div>
           <h3>Projected ownership &mdash; week <span id="own-wk"></span></h3>
+          <p style="margin-bottom:6px">Running on: <span id="own-src">&mdash;</span></p>
           <p>The leverage half of the board. Paste <code>TEAM, percent</code> per line from your pool&rsquo;s own
             numbers, or leave it to the model, which spreads the field over the week&rsquo;s favourites.</p>
           <textarea id="imp-own" spellcheck="false" placeholder="LAC, 35
@@ -412,6 +413,7 @@ DET, 16
       maximise. Drag it above 1 to lean harder into differentiation than one week of EV justifies &mdash;
       defensible, because survivor is multi-week and winner-take-all and this prices one week. Nothing
       here is fitted to results.</p>
+    <p id="fieldnote" hidden></p>
     <p id="provenance"><b>The numbers loaded now are a sample season</b> unless you have imported your own: a synthetic
       round-robin slate with real team names, priced off the sample ratings above. It is shaped like an NFL
       season &mdash; 17 games, one bye each between weeks 5 and 14 &mdash; so the board behaves correctly, but
@@ -424,6 +426,9 @@ DET, 16
      Absent (the published Artifact, a fresh clone) this 404s silently and the
      embedded sample below is used instead. -->
 <script src="season.js"></script>
+<!-- Real pool state and ESPN's own pick counters: `python pull_field.py` writes
+     field.js. Absent, this 404s silently and ownership falls back to the model. -->
+<script src="field.js"></script>
 <script>
 const EMBEDDED_SAMPLE = 
 {"label":"Sample season","note":"Synthetic schedule on a circle-method round robin -- NOT the real 2026 NFL slate. Win probabilities are derived from the sample power ratings below.","weeks":18,"hfa":2.0,"sigma":13.2,"teams":[{"abbr":"BUF","name":"Buffalo Bills","conf":"AFC","div":"East","rating":5.5},{"abbr":"MIA","name":"Miami Dolphins","conf":"AFC","div":"East","rating":-1.0},{"abbr":"NE","name":"New England Patriots","conf":"AFC","div":"East","rating":1.5},{"abbr":"NYJ","name":"New York Jets","conf":"AFC","div":"East","rating":-3.5},{"abbr":"BAL","name":"Baltimore Ravens","conf":"AFC","div":"North","rating":6.5},{"abbr":"CIN","name":"Cincinnati Bengals","conf":"AFC","div":"North","rating":2.5},{"abbr":"CLE","name":"Cleveland Browns","conf":"AFC","div":"North","rating":-4.5},{"abbr":"PIT","name":"Pittsburgh Steelers","conf":"AFC","div":"North","rating":0.5},{"abbr":"HOU","name":"Houston Texans","conf":"AFC","div":"South","rating":2.0},{"abbr":"IND","name":"Indianapolis Colts","conf":"AFC","div":"South","rating":0.0},{"abbr":"JAX","name":"Jacksonville Jaguars","conf":"AFC","div":"South","rating":1.0},{"abbr":"TEN","name":"Tennessee Titans","conf":"AFC","div":"South","rating":-5.5},{"abbr":"DEN","name":"Denver Broncos","conf":"AFC","div":"West","rating":3.5},{"abbr":"KC","name":"Kansas City Chiefs","conf":"AFC","div":"West","rating":5.0},{"abbr":"LV","name":"Las Vegas Raiders","conf":"AFC","div":"West","rating":-2.0},{"abbr":"LAC","name":"Los Angeles Chargers","conf":"AFC","div":"West","rating":3.0},{"abbr":"DAL","name":"Dallas Cowboys","conf":"NFC","div":"East","rating":0.5},{"abbr":"NYG","name":"New York Giants","conf":"NFC","div":"East","rating":-4.0},{"abbr":"PHI","name":"Philadelphia Eagles","conf":"NFC","div":"East","rating":6.0},{"abbr":"WAS","name":"Washington Commanders","conf":"NFC","div":"East","rating":2.0},{"abbr":"CHI","name":"Chicago Bears","conf":"NFC","div":"North","rating":1.0},{"abbr":"DET","name":"Detroit Lions","conf":"NFC","div":"North","rating":5.0},{"abbr":"GB","name":"Green Bay Packers","conf":"NFC","div":"North","rating":4.5},{"abbr":"MIN","name":"Minnesota Vikings","conf":"NFC","div":"North","rating":1.5},{"abbr":"ATL","name":"Atlanta Falcons","conf":"NFC","div":"South","rating":-0.5},{"abbr":"CAR","name":"Carolina Panthers","conf":"NFC","div":"South","rating":-3.0},{"abbr":"NO","name":"New Orleans Saints","conf":"NFC","div":"South","rating":-6.0},{"abbr":"TB","name":"Tampa Bay Buccaneers","conf":"NFC","div":"South","rating":2.0},{"abbr":"ARI","name":"Arizona Cardinals","conf":"NFC","div":"West","rating":-2.5},{"abbr":"LAR","name":"Los Angeles Rams","conf":"NFC","div":"West","rating":4.0},{"abbr":"SEA","name":"Seattle Seahawks","conf":"NFC","div":"West","rating":2.5},{"abbr":"SF","name":"San Francisco 49ers","conf":"NFC","div":"West","rating":4.0}],"sched":[[{"o":1,"h":1,"p":0.7402},{"o":2,"h":0,"p":0.5602},{"o":3,"h":1,"p":0.7977},{"o":4,"h":0,"p":0.4101},null,{"o":6,"h":0,"p":0.7278},{"o":7,"h":1,"p":0.702},{"o":8,"h":0,"p":0.5452},{"o":9,"h":1,"p":0.715},{"o":10,"h":0,"p":0.5751},{"o":11,"h":1,"p":0.8377},{"o":12,"h":0,"p":0.5},{"o":13,"h":1,"p":0.5751},{"o":14,"h":0,"p":0.6615},{"o":15,"h":1,"p":0.6334},{"o":16,"h":0,"p":0.5899},{"o":17,"h":1,"p":0.8082},{"o":18,"h":0,"p":0.4249}],[{"o":0,"h":0,"p":0.2598},{"o":3,"h":0,"p":0.5151},{"o":5,"h":0,"p":0.3385},{"o":7,"h":0,"p":0.3954},{"o":9,"h":0,"p":0.4101},null,{"o":13,"h":0,"p":0.2722},{"o":15,"h":0,"p":0.3247},{"o":17,"h":0,"p":0.5302},{"o":19,"h":0,"p":0.3524},{"o":21,"h":0,"p":0.2722},{"o":23,"h":0,"p":0.3666},{"o":25,"h":0,"p":0.5},{"o":27,"h":0,"p":0.3524},{"o":29,"h":0,"p":0.298},{"o":31,"h":0,"p":0.298},{"o":2,"h":0,"p":0.3666},{"o":4,"h":0,"p":0.2359}],[{"o":31,"h":0,"p":0.3666},{"o":0,"h":1,"p":0.4398},{"o":4,"h":1,"p":0.4101},{"o":6,"h":1,"p":0.7278},{"o":8,"h":1,"p":0.5452},{"o":10,"h":1,"p":0.5751},{"o":12,"h":1,"p":0.5},{"o":14,"h":1,"p":0.6615},{"o":16,"h":1,"p":0.5899},{"o":18,"h":1,"p":0.4249},{"o":20,"h":1,"p":0.5751},null,{"o":24,"h":1,"p":0.6191},{"o":26,"h":1,"p":0.7641},{"o":28,"h":1,"p":0.6753},{"o":30,"h":1,"p":0.5302},{"o":1,"h":1,"p":0.6334},{"o":3,"h":1,"p":0.702}],[{"o":30,"h":1,"p":0.3809},{"o":1,"h":1,"p":0.4849},{"o":0,"h":0,"p":0.2023},{"o":5,"h":0,"p":0.2722},{"o":7,"h":0,"p":0.3247},{"o":9,"h":0,"p":0.3385},{"o":11,"h":0,"p":0.5},{"o":13,"h":0,"p":0.2132},{"o":15,"h":0,"p":0.2598},{"o":17,"h":0,"p":0.4548},{"o":19,"h":0,"p":0.285},{"o":21,"h":0,"p":0.2132},null,{"o":25,"h":0,"p":0.4249},{"o":27,"h":0,"p":0.285},{"o":29,"h":0,"p":0.2359},{"o":31,"h":0,"p":0.2359},{"o":2,"h":0,"p":0.298}],[{"o":29,"h":0,"p":0.5151},{"o":31,"h":0,"p":0.5151},{"o":2,"h":0,"p":0.5899},{"o":0,"h":1,"p":0.5899},{"o":6,"h":1,"p":0.8377},{"o":8,"h":1,"p":0.6888},{"o":10,"h":1,"p":0.715},{"o":12,"h":1,"p":0.6476},{"o":14,"h":1,"p":0.7868},{"o":16,"h":1,"p":0.7278},null,{"o":20,"h":1,"p":0.715},{"o":22,"h":1,"p":0.6191},{"o":24,"h":1,"p":0.7523},{"o":26,"h":1,"p":0.864},{"o":28,"h":1,"p":0.7977},{"o":30,"h":1,"p":0.6753},{"o":1,"h":1,"p":0.7641}],[{"o":28,"h":1,"p":0.702},{"o":30,"h":1,"p":0.5602},{"o":1,"h":1,"p":0.6615},{"o":3,"h":1,"p":0.7278},null,{"o":7,"h":0,"p":0.5},{"o":9,"h":0,"p":0.5151},{"o":11,"h":0,"p":0.6753},{"o":13,"h":0,"p":0.3666},{"o":15,"h":0,"p":0.4249},{"o":17,"h":0,"p":0.6334},{"o":19,"h":0,"p":0.4548},{"o":21,"h":0,"p":0.3666},{"o":23,"h":0,"p":0.4698},{"o":25,"h":0,"p":0.6046},{"o":27,"h":0,"p":0.4548},{"o":29,"h":0,"p":0.3954},{"o":31,"h":0,"p":0.3954}],[{"o":27,"h":0,"p":0.2598},{"o":29,"h":0,"p":0.2132},{"o":31,"h":0,"p":0.2132},{"o":2,"h":0,"p":0.2722},{"o":4,"h":0,"p":0.1623},{"o":0,"h":1,"p":0.2722},{"o":8,"h":1,"p":0.3666},null,{"o":12,"h":1,"p":0.3247},{"o":14,"h":1,"p":0.4849},{"o":16,"h":1,"p":0.4101},{"o":18,"h":1,"p":0.2598},{"o":20,"h":1,"p":0.3954},{"o":22,"h":1,"p":0.298},{"o":24,"h":1,"p":0.4398},{"o":26,"h":1,"p":0.6046},{"o":28,"h":1,"p":0.5},{"o":30,"h":1,"p":0.3524}],[{"o":26,"h":1,"p":0.7402},{"o":28,"h":1,"p":0.6476},{"o":30,"h":1,"p":0.5},{"o":1,"h":1,"p":0.6046},{"o":3,"h":1,"p":0.6753},{"o":5,"h":1,"p":0.5},{"o":0,"h":0,"p":0.298},null,{"o":11,"h":0,"p":0.6191},{"o":13,"h":0,"p":0.3112},{"o":15,"h":0,"p":0.3666},{"o":17,"h":0,"p":0.5751},{"o":19,"h":0,"p":0.3954},{"o":21,"h":0,"p":0.3112},{"o":23,"h":0,"p":0.4101},{"o":25,"h":0,"p":0.5452},{"o":27,"h":0,"p":0.3954},{"o":29,"h":0,"p":0.3385}],[{"o":25,"h":0,"p":0.5899},{"o":27,"h":0,"p":0.4398},{"o":29,"h":0,"p":0.3809},{"o":31,"h":0,"p":0.3809},{"o":2,"h":0,"p":0.4548},{"o":4,"h":0,"p":0.3112},{"o":6,"h":0,"p":0.6334},{"o":0,"h":1,"p":0.4548},{"o":10,"h":1,"p":0.5899},{"o":12,"h":1,"p":0.5151},{"o":14,"h":1,"p":0.6753},{"o":16,"h":1,"p":0.6046},{"o":18,"h":1,"p":0.4398},null,{"o":22,"h":1,"p":0.4849},{"o":24,"h":1,"p":0.6334},{"o":26,"h":1,"p":0.7756},{"o":28,"h":1,"p":0.6888}],[{"o":24,"h":1,"p":0.5751},{"o":26,"h":1,"p":0.7278},{"o":28,"h":1,"p":0.6334},{"o":30,"h":1,"p":0.4849},{"o":1,"h":1,"p":0.5899},{"o":3,"h":1,"p":0.6615},{"o":5,"h":1,"p":0.4849},null,{"o":0,"h":0,"p":0.285},{"o":11,"h":0,"p":0.6046},{"o":13,"h":0,"p":0.298},{"o":15,"h":0,"p":0.3524},{"o":17,"h":0,"p":0.5602},{"o":19,"h":0,"p":0.3809},{"o":21,"h":0,"p":0.298},{"o":23,"h":0,"p":0.3954},{"o":25,"h":0,"p":0.5302},{"o":27,"h":0,"p":0.3809}],[{"o":23,"h":0,"p":0.4249},{"o":25,"h":0,"p":0.5602},{"o":27,"h":0,"p":0.4101},{"o":29,"h":0,"p":0.3524},{"o":31,"h":0,"p":0.3524},{"o":2,"h":0,"p":0.4249},{"o":4,"h":0,"p":0.285},null,{"o":8,"h":0,"p":0.4101},{"o":0,"h":1,"p":0.4249},{"o":12,"h":1,"p":0.4849},{"o":14,"h":1,"p":0.6476},{"o":16,"h":1,"p":0.5751},{"o":18,"h":1,"p":0.4101},{"o":20,"h":1,"p":0.5602},{"o":22,"h":1,"p":0.4548},{"o":24,"h":1,"p":0.6046},{"o":26,"h":1,"p":0.7523}],[{"o":22,"h":1,"p":0.2722},{"o":24,"h":1,"p":0.4101},{"o":26,"h":1,"p":0.5751},{"o":28,"h":1,"p":0.4698},{"o":30,"h":1,"p":0.3247},null,{"o":3,"h":1,"p":0.5},{"o":5,"h":1,"p":0.3247},{"o":7,"h":1,"p":0.3809},{"o":9,"h":1,"p":0.3954},{"o":0,"h":0,"p":0.1623},{"o":13,"h":0,"p":0.1718},{"o":15,"h":0,"p":0.2132},{"o":17,"h":0,"p":0.3954},{"o":19,"h":0,"p":0.2359},{"o":21,"h":0,"p":0.1718},{"o":23,"h":0,"p":0.2477},{"o":25,"h":0,"p":0.3666}],[{"o":21,"h":0,"p":0.3954},{"o":23,"h":0,"p":0.5},{"o":25,"h":0,"p":0.6334},{"o":27,"h":0,"p":0.4849},null,{"o":31,"h":0,"p":0.4249},{"o":2,"h":0,"p":0.5},{"o":4,"h":0,"p":0.3524},{"o":6,"h":0,"p":0.6753},{"o":8,"h":0,"p":0.4849},{"o":10,"h":0,"p":0.5151},{"o":0,"h":1,"p":0.5},{"o":14,"h":1,"p":0.715},{"o":16,"h":1,"p":0.6476},{"o":18,"h":1,"p":0.4849},{"o":20,"h":1,"p":0.6334},{"o":22,"h":1,"p":0.5302},{"o":24,"h":1,"p":0.6753}],[{"o":20,"h":1,"p":0.6753},{"o":22,"h":1,"p":0.5751},{"o":24,"h":1,"p":0.715},{"o":26,"h":1,"p":0.8377},{"o":28,"h":1,"p":0.7641},{"o":30,"h":1,"p":0.6334},{"o":1,"h":1,"p":0.7278},{"o":3,"h":1,"p":0.7868},{"o":5,"h":1,"p":0.6334},{"o":7,"h":1,"p":0.6888},{"o":9,"h":1,"p":0.702},{"o":11,"h":1,"p":0.8282},{"o":0,"h":0,"p":0.4249},null,{"o":17,"h":0,"p":0.702},{"o":19,"h":0,"p":0.5302},{"o":21,"h":0,"p":0.4398},{"o":23,"h":0,"p":0.5452}],[{"o":19,"h":0,"p":0.3247},{"o":21,"h":0,"p":0.2477},{"o":23,"h":0,"p":0.3385},{"o":25,"h":0,"p":0.4698},{"o":27,"h":0,"p":0.3247},{"o":29,"h":0,"p":0.2722},null,{"o":2,"h":0,"p":0.3385},{"o":4,"h":0,"p":0.2132},{"o":6,"h":0,"p":0.5151},{"o":8,"h":0,"p":0.3247},{"o":10,"h":0,"p":0.3524},{"o":12,"h":0,"p":0.285},{"o":0,"h":1,"p":0.3385},{"o":16,"h":1,"p":0.4849},{"o":18,"h":1,"p":0.3247},{"o":20,"h":1,"p":0.4698},{"o":22,"h":1,"p":0.3666}],[{"o":18,"h":1,"p":0.4698},{"o":20,"h":1,"p":0.6191},{"o":22,"h":1,"p":0.5151},{"o":24,"h":1,"p":0.6615},{"o":26,"h":1,"p":0.7977},{"o":28,"h":1,"p":0.715},{"o":30,"h":1,"p":0.5751},{"o":1,"h":1,"p":0.6753},{"o":3,"h":1,"p":0.7402},{"o":5,"h":1,"p":0.5751},{"o":7,"h":1,"p":0.6334},{"o":9,"h":1,"p":0.6476},{"o":11,"h":1,"p":0.7868},null,{"o":0,"h":0,"p":0.3666},{"o":17,"h":0,"p":0.6476},{"o":19,"h":0,"p":0.4698},{"o":21,"h":0,"p":0.3809}],[{"o":17,"h":0,"p":0.5751},{"o":19,"h":0,"p":0.3954},{"o":21,"h":0,"p":0.3112},{"o":23,"h":0,"p":0.4101},{"o":25,"h":0,"p":0.5452},null,{"o":29,"h":0,"p":0.3385},{"o":31,"h":0,"p":0.3385},{"o":2,"h":0,"p":0.4101},{"o":4,"h":0,"p":0.2722},{"o":6,"h":0,"p":0.5899},{"o":8,"h":0,"p":0.3954},{"o":10,"h":0,"p":0.4249},{"o":12,"h":0,"p":0.3524},{"o":14,"h":0,"p":0.5151},{"o":0,"h":1,"p":0.4101},{"o":18,"h":1,"p":0.3954},{"o":20,"h":1,"p":0.5452}],[{"o":16,"h":1,"p":0.4249},{"o":18,"h":1,"p":0.2722},{"o":20,"h":1,"p":0.4101},{"o":22,"h":1,"p":0.3112},null,{"o":26,"h":1,"p":0.6191},{"o":28,"h":1,"p":0.5151},{"o":30,"h":1,"p":0.3666},{"o":1,"h":1,"p":0.4698},{"o":3,"h":1,"p":0.5452},{"o":5,"h":1,"p":0.3666},{"o":7,"h":1,"p":0.4249},{"o":9,"h":1,"p":0.4398},{"o":11,"h":1,"p":0.6046},{"o":13,"h":1,"p":0.298},{"o":15,"h":1,"p":0.3524},{"o":0,"h":0,"p":0.1918},{"o":19,"h":0,"p":0.2722}],[{"o":15,"h":0,"p":0.5302},{"o":17,"h":0,"p":0.7278},{"o":19,"h":0,"p":0.5602},{"o":21,"h":0,"p":0.4698},{"o":23,"h":0,"p":0.5751},{"o":25,"h":0,"p":0.702},{"o":27,"h":0,"p":0.5602},{"o":29,"h":0,"p":0.5},{"o":31,"h":0,"p":0.5},{"o":2,"h":0,"p":0.5751},null,{"o":6,"h":0,"p":0.7402},{"o":8,"h":0,"p":0.5602},{"o":10,"h":0,"p":0.5899},{"o":12,"h":0,"p":0.5151},{"o":14,"h":0,"p":0.6753},{"o":16,"h":0,"p":0.6046},{"o":0,"h":1,"p":0.5751}],[{"o":14,"h":1,"p":0.6753},{"o":16,"h":1,"p":0.6046},{"o":18,"h":1,"p":0.4398},{"o":20,"h":1,"p":0.5899},{"o":22,"h":1,"p":0.4849},{"o":24,"h":1,"p":0.6334},{"o":26,"h":1,"p":0.7756},null,{"o":30,"h":1,"p":0.5452},{"o":1,"h":1,"p":0.6476},{"o":3,"h":1,"p":0.715},{"o":5,"h":1,"p":0.5452},{"o":7,"h":1,"p":0.6046},{"o":9,"h":1,"p":0.6191},{"o":11,"h":1,"p":0.7641},{"o":13,"h":1,"p":0.4698},{"o":15,"h":1,"p":0.5302},{"o":17,"h":1,"p":0.7278}],[{"o":13,"h":0,"p":0.3247},{"o":15,"h":0,"p":0.3809},{"o":17,"h":0,"p":0.5899},{"o":19,"h":0,"p":0.4101},{"o":21,"h":0,"p":0.3247},{"o":23,"h":0,"p":0.4249},{"o":25,"h":0,"p":0.5602},{"o":27,"h":0,"p":0.4101},{"o":29,"h":0,"p":0.3524},{"o":31,"h":0,"p":0.3524},{"o":2,"h":0,"p":0.4249},{"o":4,"h":0,"p":0.285},{"o":6,"h":0,"p":0.6046},null,{"o":10,"h":0,"p":0.4398},{"o":12,"h":0,"p":0.3666},{"o":14,"h":0,"p":0.5302},{"o":16,"h":0,"p":0.4548}],[{"o":12,"h":1,"p":0.6046},{"o":14,"h":1,"p":0.7523},{"o":16,"h":1,"p":0.6888},{"o":18,"h":1,"p":0.5302},{"o":20,"h":1,"p":0.6753},{"o":22,"h":1,"p":0.5751},{"o":24,"h":1,"p":0.715},{"o":26,"h":1,"p":0.8377},{"o":28,"h":1,"p":0.7641},null,{"o":1,"h":1,"p":0.7278},{"o":3,"h":1,"p":0.7868},{"o":5,"h":1,"p":0.6334},{"o":7,"h":1,"p":0.6888},{"o":9,"h":1,"p":0.702},{"o":11,"h":1,"p":0.8282},{"o":13,"h":1,"p":0.5602},{"o":15,"h":1,"p":0.6191}],[{"o":11,"h":0,"p":0.7278},{"o":13,"h":0,"p":0.4249},{"o":15,"h":0,"p":0.4849},{"o":17,"h":0,"p":0.6888},{"o":19,"h":0,"p":0.5151},{"o":21,"h":0,"p":0.4249},{"o":23,"h":0,"p":0.5302},{"o":25,"h":0,"p":0.6615},{"o":27,"h":0,"p":0.5151},{"o":29,"h":0,"p":0.4548},{"o":31,"h":0,"p":0.4548},null,{"o":4,"h":0,"p":0.3809},{"o":6,"h":0,"p":0.702},{"o":8,"h":0,"p":0.5151},{"o":10,"h":0,"p":0.5452},{"o":12,"h":0,"p":0.4698},{"o":14,"h":0,"p":0.6334}],[{"o":10,"h":1,"p":0.5751},{"o":12,"h":1,"p":0.5},{"o":14,"h":1,"p":0.6615},{"o":16,"h":1,"p":0.5899},{"o":18,"h":1,"p":0.4249},{"o":20,"h":1,"p":0.5751},{"o":22,"h":1,"p":0.4698},{"o":24,"h":1,"p":0.6191},{"o":26,"h":1,"p":0.7641},{"o":28,"h":1,"p":0.6753},{"o":30,"h":1,"p":0.5302},{"o":1,"h":1,"p":0.6334},null,{"o":5,"h":1,"p":0.5302},{"o":7,"h":1,"p":0.5899},{"o":9,"h":1,"p":0.6046},{"o":11,"h":1,"p":0.7523},{"o":13,"h":1,"p":0.4548}],[{"o":9,"h":0,"p":0.4249},{"o":11,"h":0,"p":0.5899},{"o":13,"h":0,"p":0.285},{"o":15,"h":0,"p":0.3385},null,{"o":19,"h":0,"p":0.3666},{"o":21,"h":0,"p":0.285},{"o":23,"h":0,"p":0.3809},{"o":25,"h":0,"p":0.5151},{"o":27,"h":0,"p":0.3666},{"o":29,"h":0,"p":0.3112},{"o":31,"h":0,"p":0.3112},{"o":2,"h":0,"p":0.3809},{"o":4,"h":0,"p":0.2477},{"o":6,"h":0,"p":0.5602},{"o":8,"h":0,"p":0.3666},{"o":10,"h":0,"p":0.3954},{"o":12,"h":0,"p":0.3247}],[{"o":8,"h":1,"p":0.4101},{"o":10,"h":1,"p":0.4398},{"o":12,"h":1,"p":0.3666},{"o":14,"h":1,"p":0.5302},{"o":16,"h":1,"p":0.4548},{"o":18,"h":1,"p":0.298},{"o":20,"h":1,"p":0.4398},{"o":22,"h":1,"p":0.3385},{"o":24,"h":1,"p":0.4849},null,{"o":28,"h":1,"p":0.5452},{"o":30,"h":1,"p":0.3954},{"o":1,"h":1,"p":0.5},{"o":3,"h":1,"p":0.5751},{"o":5,"h":1,"p":0.3954},{"o":7,"h":1,"p":0.4548},{"o":9,"h":1,"p":0.4698},{"o":11,"h":1,"p":0.6334}],[{"o":7,"h":0,"p":0.2598},{"o":9,"h":0,"p":0.2722},{"o":11,"h":0,"p":0.4249},{"o":13,"h":0,"p":0.1623},{"o":15,"h":0,"p":0.2023},{"o":17,"h":0,"p":0.3809},{"o":19,"h":0,"p":0.2244},{"o":21,"h":0,"p":0.1623},{"o":23,"h":0,"p":0.2359},null,{"o":27,"h":0,"p":0.2244},{"o":29,"h":0,"p":0.1817},{"o":31,"h":0,"p":0.1817},{"o":2,"h":0,"p":0.2359},{"o":4,"h":0,"p":0.136},{"o":6,"h":0,"p":0.3954},{"o":8,"h":0,"p":0.2244},{"o":10,"h":0,"p":0.2477}],[{"o":6,"h":1,"p":0.7402},{"o":8,"h":1,"p":0.5602},{"o":10,"h":1,"p":0.5899},{"o":12,"h":1,"p":0.5151},{"o":14,"h":1,"p":0.6753},null,{"o":18,"h":1,"p":0.4398},{"o":20,"h":1,"p":0.5899},{"o":22,"h":1,"p":0.4849},{"o":24,"h":1,"p":0.6334},{"o":26,"h":1,"p":0.7756},{"o":28,"h":1,"p":0.6888},{"o":30,"h":1,"p":0.5452},{"o":1,"h":1,"p":0.6476},{"o":3,"h":1,"p":0.715},{"o":5,"h":1,"p":0.5452},{"o":7,"h":1,"p":0.6046},{"o":9,"h":1,"p":0.6191}],[{"o":5,"h":0,"p":0.298},{"o":7,"h":0,"p":0.3524},{"o":9,"h":0,"p":0.3666},{"o":11,"h":0,"p":0.5302},{"o":13,"h":0,"p":0.2359},{"o":15,"h":0,"p":0.285},{"o":17,"h":0,"p":0.4849},null,{"o":21,"h":0,"p":0.2359},{"o":23,"h":0,"p":0.3247},{"o":25,"h":0,"p":0.4548},{"o":27,"h":0,"p":0.3112},{"o":29,"h":0,"p":0.2598},{"o":31,"h":0,"p":0.2598},{"o":2,"h":0,"p":0.3247},{"o":4,"h":0,"p":0.2023},{"o":6,"h":0,"p":0.5},{"o":8,"h":0,"p":0.3112}],[{"o":4,"h":1,"p":0.4849},{"o":6,"h":1,"p":0.7868},{"o":8,"h":1,"p":0.6191},{"o":10,"h":1,"p":0.6476},null,{"o":14,"h":1,"p":0.7278},{"o":16,"h":1,"p":0.6615},{"o":18,"h":1,"p":0.5},{"o":20,"h":1,"p":0.6476},{"o":22,"h":1,"p":0.5452},{"o":24,"h":1,"p":0.6888},{"o":26,"h":1,"p":0.8183},{"o":28,"h":1,"p":0.7402},{"o":30,"h":1,"p":0.6046},{"o":1,"h":1,"p":0.702},{"o":3,"h":1,"p":0.7641},{"o":5,"h":1,"p":0.6046},{"o":7,"h":1,"p":0.6615}],[{"o":3,"h":0,"p":0.6191},{"o":5,"h":0,"p":0.4398},{"o":7,"h":0,"p":0.5},{"o":9,"h":0,"p":0.5151},{"o":11,"h":0,"p":0.6753},{"o":13,"h":0,"p":0.3666},{"o":15,"h":0,"p":0.4249},{"o":17,"h":0,"p":0.6334},{"o":19,"h":0,"p":0.4548},null,{"o":23,"h":0,"p":0.4698},{"o":25,"h":0,"p":0.6046},{"o":27,"h":0,"p":0.4548},{"o":29,"h":0,"p":0.3954},{"o":31,"h":0,"p":0.3954},{"o":2,"h":0,"p":0.4698},{"o":4,"h":0,"p":0.3247},{"o":6,"h":0,"p":0.6476}],[{"o":2,"h":1,"p":0.6334},{"o":4,"h":1,"p":0.4849},{"o":6,"h":1,"p":0.7868},{"o":8,"h":1,"p":0.6191},{"o":10,"h":1,"p":0.6476},{"o":12,"h":1,"p":0.5751},null,{"o":16,"h":1,"p":0.6615},{"o":18,"h":1,"p":0.5},{"o":20,"h":1,"p":0.6476},{"o":22,"h":1,"p":0.5452},{"o":24,"h":1,"p":0.6888},{"o":26,"h":1,"p":0.8183},{"o":28,"h":1,"p":0.7402},{"o":30,"h":1,"p":0.6046},{"o":1,"h":1,"p":0.702},{"o":3,"h":1,"p":0.7641},{"o":5,"h":1,"p":0.6046}]]}
@@ -445,6 +450,7 @@ const EMBEDDED_SAMPLE =
    above. Never merged: a half-real slate is the worst of both. */
 const SAMPLE = (typeof window !== "undefined" && window.SEASON) || EMBEDDED_SAMPLE;
 const IS_REAL = SAMPLE !== EMBEDDED_SAMPLE;
+const FIELD = (typeof window !== "undefined" && window.FIELD) || null;
 
 const W = SAMPLE.weeks;                 // 18
 const NT = SAMPLE.teams.length;         // 32
@@ -477,6 +483,17 @@ const BY_ABBR = new Map(ABBR.map((a, i) => [a, i]));
    and this model prices one week. */
 const lambda = () => (S.lam === null ? 1.0 : S.lam);
 const isDouble = w => S.doubles.includes(w);
+/* Which of the three ownership sources a given week is actually running on --
+   the UI has to say, because a modelled week and a measured one render
+   identically. */
+function ownSource(w) {
+  if (S.own) return "pasted";
+  const r = FIELD && FIELD.ownership && FIELD.ownership[String(w + 1)];
+  if (!r) return "model";
+  let g = 0;
+  for (let t = 0; t < NT; t++) if (P(t, w) != null) g += r[ABBR[t]] || 0;
+  return g > 0.5 ? "espn" : "model";
+}
 const slotsAt = w => (isDouble(w) ? 2 : 1);
 
 /* Sample slate is re-priced from ratings; an imported grid is taken as given. */
@@ -609,6 +626,21 @@ function ownership(w) {
     if (given <= 0) return ownership_model(playing, w, out);
     for (const t of playing) out[t] /= given;   // normalise whatever was pasted
     return out;
+  }
+  /* ESPN's own choiceCounters, when pull_field.py has written them. Renormalised
+     over the teams OUR schedule says are playing, because ESPN drops bye teams
+     from its outcomes and the two lists can disagree by a game.
+
+     THE 0.5 FLOOR IS THE POINT: a week nobody has picked yet comes back all
+     zeros, and a table of zeros is not ownership -- it would hand the leverage
+     model a field that survives with probability 0. Fall back to the model
+     there rather than dividing by almost nothing. */
+  const real = FIELD && FIELD.ownership && FIELD.ownership[String(w + 1)];
+  if (real) {
+    let given = 0;
+    for (const t of playing) { const v = real[ABBR[t]] || 0; out[t] = v; given += v; }
+    if (given > 0.5) { for (const t of playing) out[t] /= given; return out; }
+    out.fill(0);
   }
   return ownership_model(playing, w, out);
 }
@@ -919,6 +951,12 @@ function renderControls(R) {
   $("#lev-foot").textContent = lambda().toFixed(2) + (Math.abs(lambda() - 1) < 1e-9 ? " · expected equity" : lambda() > 1 ? " · leans contrarian" : " · leans safe");
   $("#used-foot").textContent = S.used.length ? S.used.length + " burned" : "click a team name in the board";
   $("#own-wk").textContent = String(S.week + 1);
+  const src = ownSource(S.week);
+  $("#own-src").innerHTML = src === "pasted" ? "your pasted numbers"
+    : src === "espn" ? "<b>ESPN&rsquo;s own pick counters</b>, ~" +
+        ((FIELD.implied_field || {})[S.week + 1] || 0).toLocaleString() +
+        " entries game-wide &mdash; not your 25"
+    : "a model, not data &mdash; nobody has picked this week yet";
   $("#call-h").textContent = "Week " + (S.week + 1) + (isDouble(S.week) ? " — two picks" : "") + " call";
   const real = S.grid || IS_REAL;
   $("#stamptext").innerHTML = S.grid ? "Your imported grid &middot; " + ABBR.length + " teams"
@@ -1147,13 +1185,31 @@ async function claudeUse(name) {
   try { return (typeof claude !== "undefined" && claude.use) ? await claude.use(name) : null; }
   catch (e) { return null; }
 }
+if (FIELD) {
+  const n = $("#fieldnote"); n.hidden = false;
+  n.innerHTML = "<b>Pool state is real.</b> " + esc(FIELD.group.surviving) + " of " +
+    esc(FIELD.group.size) + " entries alive, read from your ESPN pool" +
+    (FIELD.pulled_at ? " on " + esc(String(FIELD.pulled_at).slice(0, 10)) : "") +
+    ". <b>Ownership is ESPN-wide, not your pool.</b> Those counters are taken over " +
+    "every entry in ESPN&rsquo;s survivor game &mdash; tens of thousands &mdash; so they are " +
+    "real measured picks but a proxy for what twenty-five people you know will do. " +
+    "Paste your own numbers over them whenever you have better.";
+}
 if (IS_REAL) {
   $("#provenance").innerHTML = "<b>Real slate loaded from season.js.</b> " + esc(SAMPLE.note || "") +
     (SAMPLE.odds_games != null ? " Team ratings were fitted to " + SAMPLE.odds_games +
       " real market spreads; every week without a posted line is priced from those ratings, " +
       "which is a model output and not a quoted price." : "");
 }
-try { adopt(JSON.parse(localStorage.getItem(SKEY) || localStorage.getItem(SKEY_WAS) || "null")); } catch (e) { /* ignore */ }
+let hadSaved = false;
+try {
+  const raw = localStorage.getItem(SKEY) || localStorage.getItem(SKEY_WAS);
+  if (raw) { adopt(JSON.parse(raw)); hadSaved = true; }
+} catch (e) { /* ignore */ }
+/* A pool shrinks every week and the leverage denominator is share-of-what-is-
+   left, so the alive count is the honest default -- but never over a number you
+   set yourself. */
+if (!hadSaved && FIELD && FIELD.group && FIELD.group.surviving) S.pool = FIELD.group.surviving;
 render();
 
 (async () => {

@@ -8,3 +8,5 @@ artifact.html
 preview.html
 
 .env
+field.js
+probe/

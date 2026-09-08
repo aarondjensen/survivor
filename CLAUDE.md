@@ -151,7 +151,46 @@ this is the largest single error in the leverage half. The alive count is the sa
 shape of error one size down: pools shrink every week and `S.pool` is a static input,
 so the leverage denominator is wrong from week 2 onward.
 
-**`pull_field.py` IS THE FIX AND IT REFUSES TO GUESS.** ESPN's games platform
+**AND ESPN PUBLISHES REAL OWNERSHIP, WHICH IS WHAT `pull_field.py` NOW READS.**
+Every proposition's `possibleOutcomes[].choiceCounters[]` carries `count` and
+`percentage` — measured picks over ESPN's whole survivor game, roughly **55,000
+entries**, available BEFORE lock. That is the softmax's replacement, not its
+calibration.
+
+**IT IS ESPN-WIDE AND THE PAGE SAYS SO IN THOSE WORDS.** Those counters are taken
+over every entry in the game; this pool is **25 people**. Real measured picks are
+a far better prior than a curve fitted to nothing, and they are still a proxy for
+what twenty-five people you know will do — so the footer states the scope and the
+paste box overrides it. Precedence is **pasted > ESPN > model**, and `ownSource()`
+reports which is live, because a modelled week and a measured one render
+identically.
+
+**KEY ON `scoringPeriodId`, NEVER THE ARRAY INDEX.** Measured: `propositions[0]`
+came back as a **December** week carrying **28** outcomes (four teams on bye).
+Index-as-week would have filed December's ownership under week 1 and every number
+downstream would still have looked like a number.
+
+**A WEEK OF ALL ZEROS IS NOT OWNERSHIP.** Future weeks come back uncounted, and a
+zero table handed to the leverage model describes a field that survives with
+probability zero. `ownership()` requires the playing teams to carry >0.5 of the
+share between them before it trusts the table, and falls back to the model
+otherwise. Same rule one layer up: `check_ownership` REFUSES to write a table
+whose shares do not sum to ~1 rather than normalising it, because normalising is
+what makes a wrong reading look like a right one.
+
+**THE ALIVE COUNT IS SERVED DIRECTLY** as `entryStats.overallEntryCountStats`
+{SURVIVING, ELIMINATED, TOTAL}, plus a per-week breakdown. The board adopts
+`surviving` as the pool size — but never over a number you set yourself.
+
+**RIVALS' PICKS ARE NOT IN THE GROUP VIEW.** `entries[]` carries
+{challengeId, id, member, name, score} and no `picks`; picks live on the entry in
+the `members` view, as `outcomesPicked[].outcomeId` resolved through
+`possibleOutcomes[].id`. `clientFlags.showGroupPicks` is `true` for this pool, so
+they are readable — but the view that serves them is not called until a week has
+locked, so it needs one more `--discover` pass then. Until it lands, the field's
+BURNED teams are still unmodelled.
+
+**`pull_field.py` REFUSES TO GUESS.** ESPN's games platform
 (Gambit — `fantasy.espn.com/games/nfl-survivor-2026/...`) is NOT the `ffl` fantasy
 API draftkit talks to, and its endpoints are undocumented. So `--discover` drives a
 real browser through the user's own session and RECORDS the calls the page makes:

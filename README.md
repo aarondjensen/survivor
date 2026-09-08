@@ -76,7 +76,7 @@ for who is still alive and which teams they have already spent.
 |---|---|
 | `index.html` | the whole tool, and the source of truth |
 | `pull_season.py` | pulls the real schedule + market spreads, writes `season.js` |
-| `pull_field.py` | reads your ESPN pool: who is alive, what they have burned |
+| `pull_field.py` | reads your ESPN pool: who is alive, and ESPN's real pick counters |
 | `build_artifact.py` | emits the shell-less fragment for publishing as an Artifact |
 | `make_sample_season.py` | regenerates the synthetic sample slate |
 | `test_fit.py` | pins the measured claims about the ratings fit |
