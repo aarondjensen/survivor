@@ -1313,9 +1313,10 @@ if (FIELD) {
     "pasted ownership belongs to the pool it was pasted into." +
     (FIELD.mine && FIELD.mine.length
       ? " <b>Your " + FIELD.mine.length + " submitted pick" + (FIELD.mine.length > 1 ? "s are" : " is") +
-        "</b> marked burned on this tab: " +
+        "</b> already in, so the board is planning from the next week on: " +
         FIELD.mine.map(m => esc(m.team) + " (wk " + esc(m.week) + ")").join(", ") +
-        ". A pull only ever adds \u2014 a team you burned here by hand stays burned."
+        ". A pull only ever adds \u2014 a team you burned here by hand stays burned, " +
+        "and the week never moves backwards."
       : "");
 }
 if (IS_REAL) {
@@ -1343,10 +1344,19 @@ if (FIELD && Array.isArray(FIELD.mine)) {
     const t = BY_ABBR.has(m.team) ? BY_ABBR.get(m.team) : -1;
     if (t >= 0 && !S.used.includes(t)) S.used.push(t);
   }
-  /* The week you are picking for is the first one you have not filed, but never
-     backwards: reviewing week 2 must not be undone by a pull. */
-  const next = FIELD.mine.reduce((a, m) => Math.max(a, m.week), 0);
-  if (!hadSaved && next > 0) S.week = Math.min(W - 1, next);
+  /* AND THE WEEK MOVES WITH THEM, WHICH IS NOT COSMETIC. Burning a team takes
+     it off the board for EVERY week including the one on screen -- so a board
+     left sitting on a week you have already filed shows a call for that week
+     with your own submitted team missing from it, and recommends somebody else
+     for a pick that is already in. The burn and the advance are one fact and
+     have to land together.
+
+     Never backwards, so reviewing a later week is not undone by a pull; and no
+     longer gated on having no saved board, which is exactly the case that
+     produced the incoherent view -- a first-time load starts at week 0 and
+     could not hit it. */
+  const filed = FIELD.mine.reduce((a, m) => Math.max(a, m.week), 0);
+  if (filed > 0) S.week = Math.max(S.week, Math.min(W - 1, filed));
 }
 ensurePools();          /* after the FIELD defaults, or pool one is born at 500 */
 stash();

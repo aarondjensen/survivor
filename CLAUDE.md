@@ -333,6 +333,17 @@ this pool, so the reveal is expected once a week locks; whether it arrives on
 this endpoint or another is a MEASUREMENT, and `--inspect A --against B` is how
 it gets made rather than remembered.
 
+**THE BURN AND THE WEEK ADVANCE ARE ONE FACT AND MUST LAND TOGETHER.** Burning a
+team takes it off the board for EVERY week including the one on screen. So a
+board left sitting on a week you have already filed shows a call for THAT week
+with your own submitted team missing from the candidates, and recommends
+somebody else for a pick that is already in — a confident wrong answer on the
+one screen you look at. The first cut gated the advance on having no saved
+board, which is precisely the case that cannot produce the bug (a first load
+starts at week 0 with nothing filed) while leaving the case that does. It is
+`max(current, last filed)` now: forward whenever a filed week is at or past the
+one on screen, never backwards, so reviewing week 6 survives the next pull.
+
 **IT IS ADDED TO THE BOARD, NEVER SUBTRACTED FROM IT.** `FIELD.mine` marks your
 submitted picks burned on the ESPN tab and does nothing else. The platform knows
 what you SUBMITTED; the board is also where you plan a pick you have not
