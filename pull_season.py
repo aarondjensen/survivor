@@ -217,9 +217,18 @@ def espn_spread(comp: dict, home: str):
 
 
 # --------------------------------------------------------------- lookahead ---
-SPREAD_RE = re.compile(r"([+-]?\d+(?:\.\d+)?)")
+# Where the table comes from. 4for4 posts a spread for every team in every week,
+# which is the input this tool is otherwise missing; it is behind a subscription,
+# so nothing here downloads it -- you copy the table out and pass the file.
+LOOKAHEAD_URL = "https://www.4for4.com/betting/odds/lookahead/spread"
+
+SPREAD_TOK = re.compile(r"^[+-]?\d+(?:\.\d+)?$")   # a WHOLE token, never a substring
+LEAD_ALPHA = re.compile(r"^[@A-Za-z.]+")            # "@KC-3.5" -> "-3.5"
+JUICE_RE   = re.compile(r"\([^)]*\)")               # "-3.5 (-110)" is a line AND a price
+TRIM = " \t*\u2020\u2021#\u00b0\"'`~^"
 ORPHAN_MAX = 8        # spreads on a bye week before the table is refused
 ORPHAN_AGREE = 1.0    # pts the two sides of one game may differ by before warning
+MAX_SPREAD = 30.0     # pts; past this a "spread" is a parse artefact, not a line
 
 def read_lookahead(path):
     """Parse a pasted LOOKAHEAD SPREAD table -- e.g. 4for4's, which posts a line
@@ -241,14 +250,16 @@ def read_lookahead(path):
         raise SystemExit(
             f"No such file: {path}\n\n"
             "  --lookahead reads a table YOU save; nothing downloads it, because the sites\n"
-            "  that publish lookahead spreads sit behind a subscription. Copy the table out\n"
-            "  of the page, save it beside this script, and pass that filename. Either shape\n"
-            "  parses:\n\n"
+            "  that publish lookahead spreads sit behind a subscription:\n\n"
+            f"      {LOOKAHEAD_URL}\n\n"
+            "  Copy the table out of the page, save it beside this script, and pass that\n"
+            "  filename. Either shape parses:\n\n"
             "      LAR,-3.5,-7,+1.5,BYE,-6,...        one row per team, week 1 onward\n"
             "      LAR,1,-3.5                         or team, week, spread\n\n"
             "  Negative means that team is FAVOURED. Nothing was written; the pull works\n"
             "  without it -- you just get model numbers for the weeks no book has lined yet.")
     got = {}                                   # (team_idx, week) -> team-perspective spread
+    unread = []                                # cells carrying something unparseable
     grid_rows = long_rows = skipped = 0
     for raw in p.read_text(encoding="utf-8-sig", errors="replace").splitlines():
         line = raw.strip()
@@ -260,28 +271,69 @@ def read_lookahead(path):
             skipped += 1; continue
         cells = parts[1:]
         if len(cells) == 2 and re.fullmatch(r"\d{1,2}", cells[0] or ""):
-            wk = int(cells[0])
-            v = parse_cell(cells[1])
+            wk = int(cells[0]); why = []
+            v = parse_cell(cells[1], why)
             if 1 <= wk <= WEEKS and v is not None:
                 got[(IDX[team], wk)] = v; long_rows += 1
+            elif why:
+                unread.append(f"{team} wk{wk} {why[0]}")
             continue
         for i, cell in enumerate(cells[:WEEKS]):
-            v = parse_cell(cell)
+            why = []
+            v = parse_cell(cell, why)
             if v is not None:
                 got[(IDX[team], i + 1)] = v
+            elif why:
+                unread.append(f"{team} wk{i + 1} {why[0]}")
         grid_rows += 1
     print(f"lookahead: {grid_rows} grid row(s), {long_rows} long row(s), "
           f"{len(got)} team-weeks with a spread"
           + (f", {skipped} line(s) skipped (no team code)" if skipped else ""))
+    # A cell we cannot read is DROPPED and NAMED. It costs that fixture its market
+    # number and nothing else; reading it wrong costs the board a fabricated one.
+    if unread:
+        print(f"  ! {len(unread)} cell(s) not readable as a spread, dropped (those fixtures\n"
+              f"  ! keep model numbers): {'; '.join(unread[:6])}"
+              + ("; ..." if len(unread) > 6 else ""), file=sys.stderr)
     return got
 
 
-def parse_cell(cell):
+def parse_cell(cell, why=None):
+    """One cell -> a spread, or None with a REASON appended to `why`.
+
+    IT READS WHOLE TOKENS, NEVER THE FIRST DIGITS IT FINDS. The first cut took
+    the first number in the cell, and `at 49ers -3.5` parsed as **49.0** -- a
+    47-point error that lands on a real fixture, so no bye-week check and no
+    two-sides check can see it, and it renders as a 99.99% win probability for
+    whoever plays San Francisco. Every cell naming the 49ers is that cell.
+
+    So a candidate must BE a number, not contain one. A cell we cannot read
+    unambiguously is dropped and named: that game falls back to a model number,
+    which is the honest direction to fail in. Inventing one is not."""
     c = (cell or "").strip()
-    if not c or c.upper() in ("BYE", "-", "--", "NA", "OFF", "N/A"): return None
-    if c.upper() in ("PK", "PICK", "EVEN", "PICK'EM"): return 0.0
-    m = SPREAD_RE.search(c)                     # tolerates "at KC -3.5"
-    return float(m.group(1)) if m else None
+    if not c: return None
+    u = c.upper()
+    if u in ("BYE", "-", "--", "NA", "OFF", "N/A", "TBD"): return None
+    if u in ("PK", "PICK", "PICKEM", "PICK'EM", "EVEN"): return 0.0
+    nums = []
+    for tok in JUICE_RE.sub(" ", c).split():
+        tok = tok.strip(TRIM)
+        if not SPREAD_TOK.match(tok):
+            tok = LEAD_ALPHA.sub("", tok, count=1).strip(TRIM)   # "@KC-3.5", never "49ers-3.5"
+        if SPREAD_TOK.match(tok): nums.append(tok)
+    if len(nums) > 1:
+        signed = [t for t in nums if t[0] in "+-"]               # "-3.5 O/U 47"
+        if len(signed) == 1: nums = signed
+    if len(nums) != 1:
+        if why is not None and any(ch.isdigit() for ch in c):
+            why.append(f"{c!r} -> " + ("no whole-token number" if not nums
+                                       else "ambiguous: " + " / ".join(nums)))
+        return None
+    v = float(nums[0])
+    if abs(v) > MAX_SPREAD:
+        if why is not None: why.append(f"{c!r} -> {v:g}, past +/-{MAX_SPREAD:g} pts")
+        return None
+    return v
 
 
 def apply_lookahead(rows, look):
@@ -435,8 +487,9 @@ def main():
     ap.add_argument("--dump", nargs="?", const=True, default=False,
                     help="show what the source returns and write nothing (ESPN: a week number)")
     ap.add_argument("--lookahead", metavar="CSV",
-                    help="pasted lookahead-spread table (e.g. 4for4) -- real market numbers "
-                         "for EVERY week, not just the games a book has hung yet")
+                    help=f"pasted lookahead-spread table -- real market numbers for EVERY "
+                         f"week, not just the games a book has hung yet. 4for4 posts one at "
+                         f"{LOOKAHEAD_URL} (subscription); copy it out and save it")
     ap.add_argument("--lookahead-start", type=int, default=1, metavar="WEEK",
                     help="which week the grid's first column is (default 1)")
     ap.add_argument("--ratings", metavar="CSV", help="TEAM,rating per line instead of fitting")

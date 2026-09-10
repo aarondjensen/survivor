@@ -46,11 +46,17 @@ de-vigged — an actual traded price. A game with a posted **spread** goes throu
 a normal curve. Everything else is model output from ratings fitted to the lines
 that do exist, and the page prints that split under the board.
 
-In September a book has only hung lines on the next week or two. **`--lookahead`
-closes that gap**: paste a lookahead-spread table (4for4 publishes one for every
-team in every week) and the whole season gets market numbers instead of modelled
-ones. It refuses a table whose spreads land on bye weeks, which is what a
-column-offset paste looks like.
+In September a book has only hung lines on the next week or two — the 2026-09-10
+pull fitted **101 of 272**. **`--lookahead` closes that gap**: paste a
+lookahead-spread table and the whole season gets market numbers instead of
+modelled ones. 4for4 publishes one for every team in every week, at
+
+    https://www.4for4.com/betting/odds/lookahead/spread   (subscription)
+
+Nothing downloads it — copy the table out and save it. Negative means that team
+is favoured. It refuses a table whose spreads land on bye weeks, which is what a
+column-offset paste looks like, and it reads whole tokens only: `at 49ers -3.5`
+is a 3.5-point line, not a 49-point one.
 
 If the pull fails verification it writes nothing and you stay on the sample.
 

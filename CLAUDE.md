@@ -260,12 +260,18 @@ the message says what a bad fit does rather than that one is possible.
 stops being visibly worse, so the claim cannot quietly go stale.
 
 **`--lookahead` IS THE ANSWER TO "REAL NUMBERS FOR WEEK 15".** A book has not
-hung a line on week 15 in September, but 4for4 and others publish **lookahead
-spreads** for every team in every week. Paste that table and every fixture gets a
-market number instead of a model one. Two shapes are accepted (a grid, or
-`TEAM,WEEK,SPREAD`), and the **sign convention is the betting one** — negative
-means that team is favoured — which is stated rather than detected, and then
-checked two ways:
+hung a line on week 15 in September — the 2026-09-10 pull fitted **101 of 272** —
+but 4for4 and others publish **lookahead spreads** for every team in every week:
+
+    https://www.4for4.com/betting/odds/lookahead/spread
+
+It is behind a **subscription**, so nothing downloads it and `LOOKAHEAD_URL` is
+there to be read, not fetched — it is in the `--lookahead` help and in the
+missing-file refusal, which are the two places you are standing when you need it.
+Paste that table and every fixture gets a market number instead of a model one.
+Two shapes are accepted (a grid, or `TEAM,WEEK,SPREAD`), and the **sign
+convention is the betting one** — negative means that team is favoured — which is
+stated rather than detected, and then checked three ways:
 
 - **Both sides of one game must be equal and opposite.** They disagree only if
   the table is misaligned or the spreads are written from the other perspective.
@@ -274,6 +280,18 @@ checked two ways:
   testing: the first cut refused at 20% of parsed cells, which on a 544-cell
   table is 108, and a one-week column shift produces about 32 — so it waved
   through exactly the misread it was written to catch.
+- **A CELL'S SPREAD IS A WHOLE TOKEN, NEVER THE FIRST DIGITS IN IT.** The first
+  cut searched for a number anywhere in the cell, so a paste that carries the
+  opponent read **`at 49ers -3.5` as 49.0** — and *nothing above can see it*: it
+  lands on a real fixture, so no bye-week orphan, and both sides misread the same
+  way, so no disagreement. It renders as a **99.99%** win probability for whoever
+  plays San Francisco, in all **17** of its games. Measured on a full-size paste:
+  17 of 544 cells wrong under the old rule, 0 now. So a candidate must *be* a
+  number — the juice in `(-110)` is stripped, a leading `@KC-` is stripped, a
+  signed token beats an unsigned one (`-3.5 O/U 47`), anything past `MAX_SPREAD`
+  (30 pts) is refused, and a cell that stays ambiguous is **dropped and named**
+  rather than guessed: that fixture falls back to a model number, which is the
+  honest direction to fail in. `test_lookahead.py` pins it.
 
 **NOBODY HAS REAL WIN PROBABILITIES FOR WEEK 15 IN SEPTEMBER, BECAUSE NONE EXIST.**
 Every product you can buy — PoolGenius included — is running this same kind of
