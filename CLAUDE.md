@@ -259,6 +259,35 @@ the message says what a bad fit does rather than that one is possible.
 `test_fit.py` pins all of it, including a test that FAILS if ridge 1.0 ever
 stops being visibly worse, so the claim cannot quietly go stale.
 
+**AND THE MARKET DOES NOT HAVE WEEK 15 EITHER, WHICH MAKES `--lookahead` A
+ONE-WEEK INSTRUMENT AND NOT AN EIGHTEEN-WEEK ONE.** Searched 2026-09-14, four
+queries, consistent across all of them: books hang the **following week's** board
+about a week early, pull it down while Sunday plays, and repost it that evening.
+Nobody is quoting week 15 in September. The one full-season board anybody cites is
+a **Westgate stunt** — all 272 games priced at schedule release, a snapshot, not a
+feed. And 4for4's Lookahead Lines is reported as **DraftKings consensus for the
+upcoming week**, one week at a time; their own article URLs are shaped that way
+(`/2026/w1/week-2-nfl-odds-lookahead-lines-report` — published during week 1,
+about week 2).
+
+**THAT IS EVIDENCE, NOT A MEASUREMENT, AND THE DIFFERENCE IS THE POINT.** Every
+WebFetch from the session that checked this was refused by an egress proxy — 4for4,
+ESPN, DraftKings, VegasInsider, Sagarin, Wikipedia — so the page was never opened.
+The grid shape `read_lookahead` parses was assumed in a sandbox, which is this
+codebase's recurring failure mode, and it is **one look to settle**: open the page
+and count the week columns. If it is 18 wide, the paragraph below stands. If it is
+one week, then `--lookahead` buys **~16 fixtures**, not 272, and the honest source
+for weeks 3-18 is a RATING SET through `--ratings` — Sagarin, Massey, dratings and
+TeamRankings all publish free ones, and all four are model output, exactly like the
+tool's own fit.
+
+**COVERAGE IS NOT MONOTONIC, AND IT FELL BELOW `MIN_LINES` FOUR DAYS IN.** Same
+command, same source: **101 lined on 2026-09-10, 32 on 2026-09-14** — weeks 1 and 2
+only, 240 of 272 modelled, and `pull_season.py` printed its own thin-data warning.
+So "that share grows as the season comes into range" is wrong as stated: it moves
+both ways, with the board being taken down and reposted, and a mid-week pull can
+sit under the 48 the fit needs. Read the warning rather than the calendar.
+
 **`--lookahead` IS THE ANSWER TO "REAL NUMBERS FOR WEEK 15".** A book has not
 hung a line on week 15 in September — the 2026-09-10 pull fitted **101 of 272** —
 but 4for4 and others publish **lookahead spreads** for every team in every week:
